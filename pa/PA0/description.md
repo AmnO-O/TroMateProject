@@ -81,15 +81,36 @@ TroMate is a **chatbot integrated directly into the group chat on Telegram / Zal
 
 ## 5. Interview Evidence
 
-> **Requirement:** Interview **at least 5 potential users/customers**. Attach evidence for each.
+> **Requirement:** Interview **at least 5 potential users/customers** and provide evidence for each: an **audio/video recording**, the **notes taken**, and **information about the interviewee** (background, occupation, interests, and other characteristics).
 
-| # | Interviewee (background / occupation / interests) | Date | Format (audio/video/notes) | Key findings |
-|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD | TBD |
-| 4 | TBD | TBD | TBD | TBD |
-| 5 | TBD | TBD | TBD | TBD |
+### 5.1 Interviewee profiles
+
+| # | Name | Age | Occupation | Background / interests | Other characteristics | Date | Interviewer(s) |
+|---|---|---|---|---|---|---|---|
+| 1 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 2 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 3 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 4 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 5 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+
+### 5.2 Evidence files
+
+> Files are stored in `pa/PA0/interviews/`. Naming: `interview-<n>-<name>.<ext>`.
+
+| # | Audio/video recording | Notes | Key findings |
+|---|---|---|---|
+| 1 | `interview-1-TBD.mp3` / `.mp4` | `interview-1-TBD.md` | TBD |
+| 2 | `interview-2-TBD.mp3` / `.mp4` | `interview-2-TBD.md` | TBD |
+| 3 | `interview-3-TBD.mp3` / `.mp4` | `interview-3-TBD.md` | TBD |
+| 4 | `interview-4-TBD.mp3` / `.mp4` | `interview-4-TBD.md` | TBD |
+| 5 | `interview-5-TBD.mp3` / `.mp4` | `interview-5-TBD.md` | TBD |
+
+### 5.3 Summary of findings
+
+- **Confirmed problems:** (e.g., fragmented micro-debts, painful rent reconciliation, awkward reminders)
+- **New ideas discovered:** (e.g., privacy concern about the bot reading chat, need for extra cost categories like garbage/bike fees)
+- **Platform preference:** (e.g., mostly Zalo, some Telegram)
+- **Willingness to pay:** (e.g., a few tens of thousands of đồng per room/month)
 
 ---
 
