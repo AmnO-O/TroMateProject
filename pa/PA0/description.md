@@ -96,6 +96,9 @@ TroMate is a **chatbot integrated directly into the group chat on Telegram / Zal
 ### 5.2 Evidence files
 
 > Files are stored in `pa/PA0/interviews/`. Naming: `interview-<n>-<name>.<ext>`.
+> Interview questions: `pa/PA0/interviews/interview-questions.md`.
+> **Online survey:** https://docs.google.com/forms/d/e/1FAIpQLScM5yP4aliMYLqN7aDY88b7SqNZ4aVUaF5TYSiHEhPrL0CenA/viewform
+> **Recorded answers (Google Sheet):** https://docs.google.com/spreadsheets/d/1X-GWnKz42I-MgZ_UnvzSq1lkeU0NDc5DSjurFPXTJ1M/edit?usp=sharing
 
 | # | Audio/video recording | Notes | Key findings |
 |---|---|---|---|

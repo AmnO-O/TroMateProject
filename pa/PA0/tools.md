@@ -9,4 +9,6 @@ Quick index of the collaboration tools for the TroMate project so the TA/lecture
 | Slack | Group discussions (channel linked to Trello) | TBD (workspace created by TA) | Granted via TA invite |
 | Trello | Board linked to the group's Slack channel | TBD | Add TA/lecturer to the board |
 | Facebook group | General notifications & class Q&A | https://www.facebook.com/groups/1771468560627426 | Request to join; TA/lecturer already included |
+| Google Form (user research) | Online interview survey / validation ratings | https://docs.google.com/forms/d/e/1FAIpQLScM5yP4aliMYLqN7aDY88b7SqNZ4aVUaF5TYSiHEhPrL0CenA/viewform | Published; anyone with the link |
+| Google Sheet (form responses) | Recorded answers from the survey | https://docs.google.com/spreadsheets/d/1X-GWnKz42I-MgZ_UnvzSq1lkeU0NDc5DSjurFPXTJ1M/edit?usp=sharing | Anyone with the link can view |
 | Moodle | Assignment posting & submission | TBD (course Moodle) | N/A |
