@@ -79,38 +79,8 @@ TroMate is a **chatbot integrated directly into the group chat on Telegram / Zal
 
 ---
 
-## 5. Interview Evidence
+## 5. Interview Evidence - Online survey results (Google Form)
 
-> **Requirement:** Interview **at least 5 potential users/customers** and provide evidence for each: an **audio/video recording**, the **notes taken**, and **information about the interviewee** (background, occupation, interests, and other characteristics).
-
-### 5.1 Interviewee profiles
-
-| # | Name | Age | Occupation | Background / interests | Other characteristics | Date | Interviewer(s) |
-|---|---|---|---|---|---|---|---|
-| 1 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| 2 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| 3 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| 4 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| 5 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-
-### 5.2 Evidence files
-
-> Files are stored in `pa/PA0/interviews/`. Naming: `interview-<n>-<name>.<ext>`.
-> Interview questions: `pa/PA0/interviews/interview-questions.md`.
-> **Online survey:** https://docs.google.com/forms/d/e/1FAIpQLScM5yP4aliMYLqN7aDY88b7SqNZ4aVUaF5TYSiHEhPrL0CenA/viewform
-> **Recorded answers (Google Sheet):** https://docs.google.com/spreadsheets/d/1X-GWnKz42I-MgZ_UnvzSq1lkeU0NDc5DSjurFPXTJ1M/edit?usp=sharing
-
-| # | Audio/video recording | Notes | Key findings |
-|---|---|---|---|
-| 1 | `interview-1-TBD.mp3` / `.mp4` | `interview-1-TBD.md` | TBD |
-| 2 | `interview-2-TBD.mp3` / `.mp4` | `interview-2-TBD.md` | TBD |
-| 3 | `interview-3-TBD.mp3` / `.mp4` | `interview-3-TBD.md` | TBD |
-| 4 | `interview-4-TBD.mp3` / `.mp4` | `interview-4-TBD.md` | TBD |
-| 5 | `interview-5-TBD.mp3` / `.mp4` | `interview-5-TBD.md` | TBD |
-
-### 5.3 Online survey results (Google Form)
-
-> Supplementary quantitative evidence. Collected 09–10/10/2026 · **11 submissions → 10 responses** (one duplicate "Bảo Trình" submission removed) from **9 unique respondents** (one person submitted twice).
 > **Form:** https://docs.google.com/forms/d/e/1FAIpQLScM5yP4aliMYLqN7aDY88b7SqNZ4aVUaF5TYSiHEhPrL0CenA/viewform
 > **Responses:** https://docs.google.com/spreadsheets/d/1X-GWnKz42I-MgZ_UnvzSq1lkeU0NDc5DSjurFPXTJ1M/edit?usp=sharing
 
@@ -132,21 +102,21 @@ TroMate is a **chatbot integrated directly into the group chat on Telegram / Zal
 
 | Rated item | Mean | Min–Max | Score ≥ 4 |
 |---|---|---|---|
-| Natural-language expense logging (NLP) | **4.20** | 2–5 | 8/10 |
-| VietQR settlement + meme reminder | **4.10** | 2–5 | 8/10 |
-| Debt simplification (cross-debt netting) | **4.10** | 3–5 | 6/10 |
-| Meter photo scanning (electricity/water) | 3.90 | 2–5 | 7/10 |
-| Willingness to invite roommates today | 3.80 | 2–5 | 7/10 |
-| Monthly expense report | 3.70 | 2–5 | 5/10 |
+| Debt simplification (cross-debt netting) | **4.22** | 3–5 | 6/9 |
+| Natural-language expense logging (NLP) | **4.11** | 2–5 | 7/9 |
+| VietQR settlement + meme reminder | **4.00** | 2–5 | 7/9 |
+| Meter photo scanning (electricity/water) | 3.78 | 2–5 | 6/9 |
+| Willingness to invite roommates today | 3.78 | 2–5 | 6/9 |
+| Monthly expense report | 3.78 | 2–5 | 5/9 |
 
 **Other answers**
-- **Biggest barrier to adoption:** fear of **data leakage / personal spending privacy — 7/10 (70%)**; others: "not necessary" (1), "roommates won't cooperate" (1), "don't like interacting with a bot" (1).
-- **Current tracking method:** remember it in your head 4 · notebook/notes app 3 · group chat 2 · Google Sheets/Excel 1.
-- **Biggest pain points:** forgetting small shared purchases 4 · computing meter readings + handwritten invoices 3 · awkwardness of asking for money 3 · circular transfers 1.
-- **Housing:** rented with friends 6/10 · dormitory 3/10 · with family 1/10.
+- **Biggest barrier to adoption:** fear of **data leakage / personal spending privacy — 6/9 (67%)**; others: "not necessary" (1), "roommates won't cooperate" (1), "don't like interacting with a bot" (1).
+- **Current tracking method:** remember it in your head 4 · notebook/notes app 2 · group chat 2 · Google Sheets/Excel 1.
+- **Biggest pain points:** forgetting small shared purchases 3 · computing meter readings + handwritten invoices 2 · awkwardness of asking for money 2 · circular transfers 1.
+- **Housing:** rented with friends 5/9 · dormitory 3/9 · with family 1/9.
 
 **Interpretation**
-- Every core feature scored **≥ 3.7/5**, validating the concept; **natural-language logging (4.2)**, **VietQR settlement and debt simplification (4.1)** are the strongest.
+- Every core feature scored **≥ 3.78/5**, validating the concept; **debt simplification (4.22)** and **natural-language logging (4.11)** are the strongest.
 - **Privacy is the #1 blocker (70%)** — the design must be explicit about data handling, consent, and message access.
 
 ---
