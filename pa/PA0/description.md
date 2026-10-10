@@ -108,12 +108,46 @@ TroMate is a **chatbot integrated directly into the group chat on Telegram / Zal
 | 4 | `interview-4-TBD.mp3` / `.mp4` | `interview-4-TBD.md` | TBD |
 | 5 | `interview-5-TBD.mp3` / `.mp4` | `interview-5-TBD.md` | TBD |
 
-### 5.3 Summary of findings
+### 5.3 Online survey results (Google Form)
 
-- **Confirmed problems:** (e.g., fragmented micro-debts, painful rent reconciliation, awkward reminders)
-- **New ideas discovered:** (e.g., privacy concern about the bot reading chat, need for extra cost categories like garbage/bike fees)
-- **Platform preference:** (e.g., mostly Zalo, some Telegram)
-- **Willingness to pay:** (e.g., a few tens of thousands of đồng per room/month)
+> Supplementary quantitative evidence. Collected 09–10/10/2026 · **11 submissions → 10 responses** (one duplicate "Bảo Trình" submission removed) from **9 unique respondents** (one person submitted twice).
+> **Form:** https://docs.google.com/forms/d/e/1FAIpQLScM5yP4aliMYLqN7aDY88b7SqNZ4aVUaF5TYSiHEhPrL0CenA/viewform
+> **Responses:** https://docs.google.com/spreadsheets/d/1X-GWnKz42I-MgZ_UnvzSq1lkeU0NDc5DSjurFPXTJ1M/edit?usp=sharing
+
+**Participant snapshot**
+
+| # | Name | Field of study | Interests | Housing situation |
+|---|---|---|---|---|
+| 1 | Phạm Nguyễn Nam Trân | Logistics & Supply Chain Mgmt | Social media | Rented with friends |
+| 2 | Lương Huỳnh Gia Bảo | Computer Science | Music | Rented with friends |
+| 3 | Dương Gia Khương | Information Technology (CNTT) | — | Rented with friends |
+| 4 | Trần Đình Quốc Thắng | Computer Science | Badminton | Rented with friends |
+| 5 | Bảo Trình | Computer Engineering | Sleeping | Dormitory |
+| 6 | Huỳnh Ngọc Nga | Land Economics | Travel, baking, music | Dormitory |
+| 7 | Lê Quốc Vĩ | Computer Science | Gaming | Lives with family |
+| 8 | Trần Quốc Bảo | Mechanical Engineering | Reading | Dormitory |
+| 9 | Nguyễn Danh Phương | Information Technology (CNTT) | — | Rented with friends |
+
+**Average ratings (1–5 scale)** — the form wording maps to our features:
+
+| Rated item | Mean | Min–Max | Score ≥ 4 |
+|---|---|---|---|
+| Natural-language expense logging (NLP) | **4.20** | 2–5 | 8/10 |
+| VietQR settlement + meme reminder | **4.10** | 2–5 | 8/10 |
+| Debt simplification (cross-debt netting) | **4.10** | 3–5 | 6/10 |
+| Meter photo scanning (electricity/water) | 3.90 | 2–5 | 7/10 |
+| Willingness to invite roommates today | 3.80 | 2–5 | 7/10 |
+| Monthly expense report | 3.70 | 2–5 | 5/10 |
+
+**Other answers**
+- **Biggest barrier to adoption:** fear of **data leakage / personal spending privacy — 7/10 (70%)**; others: "not necessary" (1), "roommates won't cooperate" (1), "don't like interacting with a bot" (1).
+- **Current tracking method:** remember it in your head 4 · notebook/notes app 3 · group chat 2 · Google Sheets/Excel 1.
+- **Biggest pain points:** forgetting small shared purchases 4 · computing meter readings + handwritten invoices 3 · awkwardness of asking for money 3 · circular transfers 1.
+- **Housing:** rented with friends 6/10 · dormitory 3/10 · with family 1/10.
+
+**Interpretation**
+- Every core feature scored **≥ 3.7/5**, validating the concept; **natural-language logging (4.2)**, **VietQR settlement and debt simplification (4.1)** are the strongest.
+- **Privacy is the #1 blocker (70%)** — the design must be explicit about data handling, consent, and message access.
 
 ---
 
