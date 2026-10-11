@@ -2,9 +2,19 @@
 
 *Elements of Software Engineering — 24A01 — PA0 Project Proposal*
 
-## 1. Introduction
+## 1. Team member 
 
-### 1.1 The problem
+| Name | Student ID | email |
+|---|---|---|
+|Nguyễn Gia Hào|24125008|nghao2420@apcs.fitus.edu.vn|
+|Cao Quảng Hưng|24125010|cqhung2420@apcs.fitus.edu.vn|
+|Trịnh Võ Nam Kiệt|24125013|tvnkiet2406@apcs.fitus.edu.vn|
+|Phạm Hữu Nam|24125015|phnam2409@apcs.fitus.edu.vn|
+|Huỳnh Chí Tôn|24125020|hcton2426@apcs.fitus.edu.vn|
+
+## 2. Introduction
+
+### 2.1 The problem
 
 Shared living is full of small, fragmented money that no one wants to track:
 
@@ -12,7 +22,7 @@ Shared living is full of small, fragmented money that no one wants to track:
 - **Painful end-of-month rent reconciliation.** Rent invoices from landlords (handwritten, chat messages, thermal prints) contain many variables (base rent, old/new electricity readings, water volume, garbage fee, motorbike parking). The person who pays must manually compute everything and offset each member's advances — slow and error-prone.
 - **Transaction friction and "awkward debt" psychology.** Circular debt chains (A owes B, B owes C) make settlement annoying, and roommates often feel embarrassed to remind each other to transfer rent money.
 
-### 1.2 The solution
+### 2.2 The solution
 
 TroMate is a **chatbot integrated directly into the group chat on Telegram / Zalo**, paired with an embedded **Mini App** (no installation required). It acts as the dorm's **automatic "chief accountant"**. It lets users:
 
@@ -21,7 +31,7 @@ TroMate is a **chatbot integrated directly into the group chat on Telegram / Zal
 - Run an algorithm that **minimizes circular debts**,
 - Generate **dynamic VietQR codes** so debts can be settled to the exact đồng in one tap.
 
-### 1.3 Why it is worth doing
+### 2.3 Why it is worth doing
 
 - **Zero-friction** — no new app to install; it lives where roommates already talk.
 - **Real, recurring need** — every shared household faces this monthly.
@@ -30,25 +40,25 @@ TroMate is a **chatbot integrated directly into the group chat on Telegram / Zal
 
 ---
 
-## 2. Target Users and Environments
+## 3. Target Users and Environments
 
-### 2.1 Target users
+### 3.1 Target users
 
 - **Students and young professionals living in shared rentals** (2–5 people per room/apartment).
 - **The group leader / "room treasurer"** — the person who collects money and pays the landlord each month.
 - **Landlords / property managers** (indirectly) — their invoices are the input the bot parses.
 
-### 2.2 Environments
+### 3.2 Environments
 
-- **Primary platform (MVP): Telegram** — free Bot API, group-message access (Group Privacy disabled), and a smooth **Telegram Mini App** (inline webview, no app review).
-- **Secondary platform: Zalo** — best reach for mass Vietnamese users via **Zalo Mini App**; stricter review for business accounts (OA) and user-data access.
+- **Primary platform (MVP): Web application** — provides the main UI and core functionality, accessible through desktop and mobile browsers.
+- **Telegram integration:** Telegram Bot API for collecting relevant data from group chats, and Telegram Mini App for accessing the web application directly within Telegram.
+- **Secondary platform: Zalo** — potential future integration for reaching Vietnamese users, subject to Zalo's API capabilities and access policies.
 - **Devices / OS:** mobile-first (**Android & iOS**), with desktop support through the native Telegram/Zalo desktop apps.
-- **Web:** the Mini App is a web application embedded in the chat client — no separate install.
-- **Payment:** domestic bank apps via the **VietQR / NAPAS** standard.
+- **Payment:** Domestic bank applications via VietQR / NAPAS.
 
 ---
 
-## 3. Key Features
+## 4. Key Features
 
 1. **Natural-Language Quick Split** — Parses everyday group-chat messages (e.g., *"bought a water jug 50k split 3"*, *"fronted WiFi 220k"*), extracts the amount, payer, and beneficiaries, and logs the entry to the group ledger.
 2. **Rent Bill OCR & Parser** — Users send a photo of the rent invoice to the group; Computer Vision/OCR extracts base rent, electricity readings (new − old × unit price), water volume, and surcharges, then splits them automatically.
@@ -63,7 +73,7 @@ TroMate is a **chatbot integrated directly into the group chat on Telegram / Zal
 
 ---
 
-## 4. Use Cases
+## 5. Use Cases
 
 ### Use Case 1 — Daily groceries and small purchases
 - **Behavior:** Member A buys spices and laundry detergent for 120,000đ and messages the group: *"A bought detergent 120k, split for the whole room."*
@@ -79,7 +89,7 @@ TroMate is a **chatbot integrated directly into the group chat on Telegram / Zal
 
 ---
 
-## 5. Interview Evidence - Online survey results (Google Form)
+## 6. Interview Evidence - Online survey results (Google Form)
 
 > **Form:** https://docs.google.com/forms/d/e/1FAIpQLScM5yP4aliMYLqN7aDY88b7SqNZ4aVUaF5TYSiHEhPrL0CenA/viewform
 > **Responses:** https://docs.google.com/spreadsheets/d/1X-GWnKz42I-MgZ_UnvzSq1lkeU0NDc5DSjurFPXTJ1M/edit?usp=sharing
@@ -119,16 +129,3 @@ TroMate is a **chatbot integrated directly into the group chat on Telegram / Zal
 - Every core feature scored **≥ 3.78/5**, validating the concept; **debt simplification (4.22)** and **natural-language logging (4.11)** are the strongest.
 - **Privacy is the #1 blocker (70%)** — the design must be explicit about data handling, consent, and message access.
 
----
-
-## 6. Platform & Technical Notes
-
-### 6.1 Deployment platform (Telegram vs Zalo)
-- **Telegram** — Recommended for the first technical MVP: the Bot API is fully free, supports reading group messages (Group Privacy disabled), and offers a smooth Telegram Mini App (inline webview, no complex review process).
-- **Zalo** — Excellent fit for the mass Vietnamese market via the Zalo Mini App model, but has stricter review for business accounts (OA) and user-data access.
-
-### 6.2 Core tech stack
-- **Backend & Webhook:** Python (FastAPI) or Node.js (Express) to process bot event webhooks.
-- **Core algorithm:** Greedy / Disjoint-Set / Flow Network for the Minimum Cash Flow (debt-minimization) problem.
-- **Image processing:** Tesseract OCR, Google Vision API, or Viettel Cloud OCR to extract digits from thermal-printed and handwritten Vietnamese invoices.
-- **Payment integration:** A library that generates **EMVCo-compliant VietQR / NAPAS** strings encoding domestic bank info (BIN code, account number, amount, message).
