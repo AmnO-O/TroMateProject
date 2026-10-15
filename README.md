@@ -2,36 +2,57 @@
 
 **Roommate expense & rent reconciliation bot** — the dorm's automatic "chief accountant", living right inside your group chat.
 
-*Elements of Software Engineering — 24A01 · Group 06*
+| | |
+|---|---|
+| **Course** | Elements of Software Engineering — 24A01 |
+| **Group** | 06 |
+| **Status** | Inception phase (Sprint 1) |
 
 ---
 
-## What is TroMate?
+## Table of Contents
 
-TroMate is a chatbot integrated into the roommate group chat (Telegram, with a web/Mini App) that removes the friction of tracking shared money:
+- [Overview](#overview)
+- [Problem Statement](#problem-statement)
+- [Key Features](#key-features)
+- [How It Works](#how-it-works)
+- [Main Screens](#main-screens)
+- [Platform & Technology](#platform--technology)
+- [Repository Structure](#repository-structure)
+- [Folder Guide](#folder-guide)
+- [Documentation](#documentation)
+- [Roadmap](#roadmap)
+- [Team](#team)
+- [Links](#links)
+
+---
+
+## Overview
+
+TroMate is a chatbot that lives in the roommate group chat (Telegram, with a web/Mini App) and removes the friction of tracking shared money:
 
 - **Logs expenses from natural-language chat** — e.g. *"mua nước 50k chia 3"*.
-- **Reads rent bills & meter photos via OCR** (handwritten, thermal, or chat-image invoices).
-- **Simplifies circular debts** so members settle with the fewest possible transfers.
+- **Reads rent bills and meter photos via OCR** (handwritten, thermal, or chat-image invoices).
+- **Simplifies circular debts**, so members settle with the fewest possible transfers.
 - **Settles to the exact đồng with dynamic VietQR** (NAPAS), confirmed by the treasurer.
 
-No installation required — it lives where roommates already talk.
+No installation is required — it lives where roommates already talk.
 
-## The problem
+## Problem Statement
 
-1. **Fragmented micro-debts** — daily shared purchases (water, spices, WiFi) are too small to bother opening an app or spreadsheet for.
+1. **Fragmented micro-debts** — daily shared purchases (water, spices, Wi-Fi) are too small to bother opening an app or spreadsheet for.
 2. **Painful end-of-month rent reconciliation** — landlord invoices contain many variables (base rent, electricity readings, water, garbage, parking) that the payer computes and offsets by hand.
 3. **"Awkward debt" psychology** — circular debt chains and embarrassment about reminding roommates to pay.
 
-## Key features
+## Key Features
 
-| Priority | Feature |
+| Priority | Features |
 |---|---|
 | **MVP core** | Natural-language quick split · Rent bill OCR parser · Debt-simplification engine · One-tap VietQR settlement |
 | **Supporting** | Meter scanner · Monthly expense report · Shared room fund · Chore scheduler |
 | **Later** | Polite meme reminders · Move-in/deposit checklist · Zalo integration |
 
-## How it works
+## How It Works
 
 ```
 Member/Treasurer ─► Bot (NLP + OCR) ─► Group Ledger ─► Debt Simplification ─► VietQR ─► Mini App / Bank
@@ -40,38 +61,97 @@ Member/Treasurer ─► Bot (NLP + OCR) ─► Group Ledger ─► Debt Simplifi
 ```
 
 Two core journeys:
+
 - **Daily expense:** chat → parsed → *editable preview* (amount, payer, split, beneficiaries) → confirm → ledger.
 - **Rent bill:** photo → OCR fields → *human review/approval* → offset advances → minimize debts → per-member VietQR → *treasurer confirms receipt* (scan ≠ paid).
 
-## Main screens (MVP)
+## Main Screens
 
-Dashboard · Add Expense · Rent Bill Review · Settlement (3 states) · Monthly Report · Ledger.
+The MVP comprises six main screens:
 
-## Platform
+**Dashboard** · **Add Expense** · **Rent Bill Review** · **Settlement** (3 states) · **Monthly Report** · **Ledger**
 
-Mobile-first web app + **Telegram Bot API** & **Mini App** (no install). Payments via **VietQR / NAPAS**. **Zalo** is a future option, subject to API policy.
+See [`pa/PA1/ui-prototyping/flow.md`](pa/PA1/ui-prototyping/flow.md) for the user flows and [`pa/PA1/ui-prototyping/ui-prompts.md`](pa/PA1/ui-prototyping/ui-prompts.md) for the screen designs.
 
-## Tech stack
+## Platform & Technology
 
-> _To be finalized during Elaboration._ Planned: Telegram Bot API, a backend service (NLP + OCR + ledger), a web/Mini App frontend, and a database. Free-tier services only (zero budget).
+Mobile-first web app plus the **Telegram Bot API** and **Mini App** (no install). Payments are handled via **VietQR / NAPAS**. **Zalo** is a future option, subject to API policy.
 
-## Repository structure
+> **Tech stack — to be finalized during Elaboration.** Planned: Telegram Bot API, a backend service (NLP + OCR + ledger), a web/Mini App frontend, and a database. Free-tier services only (zero budget).
+
+## Repository Structure
 
 ```
-docs/            analysis & design, management, requirements, test
-pa/PA0/          project proposal, tools, interview questions
-pa/PA1/          project plan (SDP), vision, UI prototyping, weekly reports
-src/             application source (to be populated)
+TroMateProject/
+├── docs/                      # Project documentation (by discipline)
+│   ├── analysis and design/   # UML models, architecture, design artifacts
+│   ├── management/            # Schedules, plans, meeting notes, reports
+│   ├── requirements/          # Requirements, use cases, specifications
+│   └── test/                  # Test plans, test cases, test results
+├── pa/                        # Course practical assignments (graded deliverables)
+│   ├── PA0/                   # Group registration & tools setup
+│   │   ├── interviews/        # User interview guide and notes
+│   │   ├── project-proposal.md
+│   │   └── tools.md
+│   └── PA1/                   # Project plan, vision, and UI prototyping
+│       ├── project-plan/      # Software Development Plan + task assignment
+│       ├── ui-prototyping/    # User flows, screen inventory, UI prompts
+│       ├── vision/            # Vision document (in progress)
+│       ├── weekly-reports/    # Weekly progress reports
+│       ├── checklist.md
+│       └── division-of-work.md
+├── src/                       # Application source code
+└── README.md
 ```
+
+## Folder Guide
+
+Each folder has a single, clearly scoped purpose:
+
+| Folder | Purpose |
+|---|---|
+| **`docs/`** | Long-lived project documentation, organized by discipline. |
+| └ `docs/analysis and design/` | Analysis and design artifacts — UML models, software architecture, and design decisions. |
+| └ `docs/management/` | Management artifacts — schedules, plans, meeting notes, and status reports. |
+| └ `docs/requirements/` | Requirements and specifications — functional/non-functional requirements and use cases. |
+| └ `docs/test/` | Quality assurance artifacts — test plan, test cases, and test results. |
+| **`pa/`** | Official deliverables submitted for each practical assignment (graded). |
+| └ `pa/PA0/` | **PA0** — group registration and tools setup. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA0/interviews/` | User interview guide and interview notes. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA0/project-proposal.md` | Problem, target users, proposed solution, and features. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA0/tools.md` | Tools and access index (GitHub, Jira, survey). |
+| └ `pa/PA1/` | **PA1** — project plan, vision, and UI prototyping. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA1/project-plan/` | Software Development Plan (SDP) and detailed task assignment. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA1/ui-prototyping/` | User flows, screen inventory, and paste-ready UI prompts. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA1/vision/` | Vision document (in progress). |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA1/weekly-reports/` | Weekly progress reports. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA1/checklist.md` | Requirement checklist for the PA1 submission. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA1/division-of-work.md` | Together-vs-separate responsibilities for PA1. |
+| **`src/`** | Application source code, populated during the Construction phase. |
 
 ## Documentation
 
-- **Project proposal (PA0):** [`pa/PA0/project-proposal.md`](pa/PA0/project-proposal.md)
-- **Tools & access (PA0):** [`pa/PA0/tools.md`](pa/PA0/tools.md)
-- **Software Development Plan (PA1):** [`pa/PA1/project-plan/software-development-plan.md`](pa/PA1/project-plan/software-development-plan.md)
-- **User flows & screens (PA1):** [`pa/PA1/ui-prototyping/flow.md`](pa/PA1/ui-prototyping/flow.md)
+| Document | Location |
+|---|---|
+| Project proposal (PA0) | [`pa/PA0/project-proposal.md`](pa/PA0/project-proposal.md) |
+| Tools & access (PA0) | [`pa/PA0/tools.md`](pa/PA0/tools.md) |
+| Software Development Plan (PA1) | [`pa/PA1/project-plan/software-development-plan.md`](pa/PA1/project-plan/software-development-plan.md) |
+| Task assignment (PA1) | [`pa/PA1/project-plan/task-assignment.md`](pa/PA1/project-plan/task-assignment.md) |
+| User flows & screens (PA1) | [`pa/PA1/ui-prototyping/flow.md`](pa/PA1/ui-prototyping/flow.md) |
 
-## Team — Group 06
+## Roadmap
+
+The project follows three phases across five two-week sprints:
+
+| Phase | Sprints | Focus |
+|---|---|---|
+| **Inception** | Sprint 1 | Problem validation, project plan, vision, UI sketches |
+| **Elaboration** | Sprints 2–3 | Architecture & detailed design, use cases, NLP/OCR spikes, UI prototype |
+| **Construction** | Sprints 4–5 | Implementation, integration, testing, and release |
+
+## Team
+
+**Group 06**
 
 | Name | Student ID | Email | Role |
 |---|---|---|---|
@@ -83,10 +163,10 @@ src/             application source (to be populated)
 
 ## Links
 
-- **Repository:** https://github.com/AmnO-O/TroMateProject
-- **Jira board:** https://apcs24-cs300.atlassian.net/jira
-- **User survey:** https://docs.google.com/forms/d/e/1FAIpQLScM5yP4aliMYLqN7aDY88b7SqNZ4aVUaF5TYSiHEhPrL0CenA/viewform
+- **Repository:** <https://github.com/AmnO-O/TroMateProject>
+- **Jira board:** <https://apcs24-cs300.atlassian.net/jira>
+- **User survey:** <https://docs.google.com/forms/d/e/1FAIpQLScM5yP4aliMYLqN7aDY88b7SqNZ4aVUaF5TYSiHEhPrL0CenA/viewform>
 
-## Status
+---
 
-**Inception phase (Sprint 1).** Project plan, vision, and UI prototyping in progress.
+*Elements of Software Engineering — 24A01 · Group 06 · University of Science (FITUS)*
