@@ -32,17 +32,17 @@ TroMate lives directly inside your roommate group chat (Telegram Bot + Mini App)
 
 ## Key Features
 
-| Feature | Description | Spec |
-|---|---|---|
-| **Natural-Language Parsing** | Turns chat text (and text + photo context) into an expense — amount, payer, beneficiaries and description — defaulting to an equal split. | §1 |
-| **Rent Bill OCR & Meter Scanner** | Reads the rent invoice (base rent, electricity/water readings, surcharges) and cross-checks the hallway meters against it. | §2 |
-| **Usage Anomaly Detector** | Flags consumption spikes against a 3-month baseline (possible leaks or faults). | §2 |
-| **Debt Simplification** | Solves minimum cash flow on the member graph to cancel circular debts and minimize transfers. | §3 |
-| **VietQR Settlement** | EMVCo/NAPAS QR pre-filled with the exact amount and memo; the payee taps *Confirm Received*. | §4 |
-| **Polite Meme Reminders** | Auto-mentions unsettled members with a meme after 24 hours. | §5 |
-| **Monthly Report** | End-of-month infographics: electricity/water, shared meals, average per person and trends. | §6 |
-| **Confirmation State Machine** | Expenses start `PENDING` with Agree / Reject / Edit, auto-commit after 60 seconds, and freeze on rejection. | §7 |
-| **Mini App / Web UI** | Balance sheets, cash-flow charts, a filterable transaction log, admin edit/delete and group settings. | §8 |
+| Feature | Description |
+|---|---|
+| **Natural-Language Parsing** | Turns chat text (and text + photo context) into an expense — amount, payer, beneficiaries and description — defaulting to an equal split. |
+| **Rent Bill OCR & Meter Scanner** | Reads the rent invoice (base rent, electricity/water readings, surcharges) and cross-checks the hallway meters against it. |
+| **Usage Anomaly Detector** | Flags consumption spikes against a 3-month baseline (possible leaks or faults). |
+| **Debt Simplification** | Solves minimum cash flow on the member graph to cancel circular debts and minimize transfers. |
+| **VietQR Settlement** | EMVCo/NAPAS QR pre-filled with the exact amount and memo; the payee taps *Confirm Received*. |
+| **Polite Meme Reminders** | Auto-mentions unsettled members with a meme after 24 hours. |
+| **Monthly Report** | End-of-month infographics: electricity/water, shared meals, average per person and trends. |
+| **Confirmation State Machine** | Expenses start `PENDING` with Agree / Reject / Edit, auto-commit after 60 seconds, and freeze on rejection. |
+| **Mini App / Web UI** | Balance sheets, cash-flow charts, a filterable transaction log, admin edit/delete and group settings. |
 
 ---
 
@@ -94,7 +94,6 @@ TroMateProject/
 │   ├── PA0/              # Project proposal & tool index
 │   └── PA1-Group06/      # Project plan, vision, UI prototyping & weekly reports
 ├── src/                  # Application source code (populated in Construction phase)
-├── MVP_features.md       # MVP feature specification (§1–§8)
 └── README.md             # Project overview & guide
 ```
 
@@ -109,7 +108,6 @@ TroMateProject/
 | **Software Development Plan (PA1)** | [`pa/PA1-Group06/project-plan/software-development-plan.md`](pa/PA1-Group06/project-plan/software-development-plan.md) |
 | **UI Flows & Screen Inventory (PA1)** | [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md) |
 | **UI Prompts & Wireframes (PA1)** | [`pa/PA1-Group06/ui-prototyping/ui-prompts.md`](pa/PA1-Group06/ui-prototyping/ui-prompts.md) |
-| **MVP Feature Specification** | [`MVP_features.md`](MVP_features.md) |
 
 ---
 
