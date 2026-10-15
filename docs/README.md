@@ -31,7 +31,7 @@ The library is maintained separately from the assignment submission packages. Ea
 | Directory | Discipline | Scope |
 |---|---|---|
 | `requirements/` | Requirements Definition | *What* the system must do — Vision, SRS, use-case model, user stories |
-| `analysis and design/` | Analysis & Design | *How* the system is built — architecture, data model, UI design |
+| `analysis-and-design/` | Analysis & Design | *How* the system is built — architecture, data model, UI design |
 | `management/` | Project Management | Planning and tracking — plan, task assignment, risks, reports |
 | `test/` | Test | Verification and validation — test plan, test cases, test results |
 
@@ -42,8 +42,8 @@ The library is maintained separately from the assignment submission packages. Ea
 | Vision Document | Requirements | [`requirements/vision.md`](requirements/vision.md) | Phạm Hữu Nam | Huỳnh Chí Tôn | Inception |
 | Software Development Plan | Management | [`management/software-development-plan.md`](management/software-development-plan.md) | Nguyễn Gia Hào | Huỳnh Chí Tôn | Inception |
 | Task Assignment | Management | [`management/task-assignment.md`](management/task-assignment.md) | Nguyễn Gia Hào | All | Inception |
-| UI Flows & Screen Inventory | Analysis & Design | [`analysis and design/ui-flows.md`](analysis%20and%20design/ui-flows.md) | Trịnh Võ Nam Kiệt | Phạm Hữu Nam | Inception |
-| UI Prompts & Wireframes | Analysis & Design | [`analysis and design/ui-prompts.md`](analysis%20and%20design/ui-prompts.md) | Phạm Hữu Nam | Trịnh Võ Nam Kiệt | Inception |
+| UI Flows & Screen Inventory | Analysis & Design | [`analysis-and-design/ui-flows.md`](analysis-and-design/ui-flows.md) | Trịnh Võ Nam Kiệt | Phạm Hữu Nam | Inception |
+| UI Prompts & Wireframes | Analysis & Design | [`analysis-and-design/ui-prompts.md`](analysis-and-design/ui-prompts.md) | Phạm Hữu Nam | Trịnh Võ Nam Kiệt | Inception |
 | Software Requirements Specification | Requirements | *planned* | Phạm Hữu Nam | Nguyễn Gia Hào | Elaboration |
 | Use-Case Model & User Stories | Requirements | *planned* | Phạm Hữu Nam | Nguyễn Gia Hào | Elaboration |
 | Software Architecture Document | Analysis & Design | *planned* | Cao Quảng Hưng | Nguyễn Gia Hào | Elaboration |

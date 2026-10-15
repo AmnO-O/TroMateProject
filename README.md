@@ -64,7 +64,7 @@ flowchart LR
 1. **Daily Expense:** Message in chat → bot parses → `PENDING` expense broadcast with *Agree / Reject / Edit* → auto-commits after 60 seconds → group ledger.
 2. **Monthly Rent Bill:** Bill photo → OCR extraction → human review/approval → offset advances → minimize debts → per-member VietQR → treasurer confirms receipt.
 
-Detailed user flows and screen inventory are documented in [`docs/analysis and design/ui-flows.md`](docs/analysis%20and%20design/ui-flows.md).
+Detailed user flows and screen inventory are documented in [`docs/analysis-and-design/ui-flows.md`](docs/analysis-and-design/ui-flows.md).
 
 ---
 
@@ -86,7 +86,7 @@ TroMate is designed as a **zero-install, mobile-first** application utilizing fr
 ```text
 TroMateProject/
 ├── docs/                 # Living project documentation by discipline
-│   ├── analysis and design/
+│   ├── analysis-and-design/
 │   ├── management/
 │   ├── requirements/
 │   └── test/
@@ -108,8 +108,8 @@ TroMateProject/
 | **Software Development Plan** | [`docs/management/software-development-plan.md`](docs/management/software-development-plan.md) |
 | **Task Assignment** | [`docs/management/task-assignment.md`](docs/management/task-assignment.md) |
 | **Vision Document** | [`docs/requirements/vision.md`](docs/requirements/vision.md) |
-| **UI Flows & Screen Inventory** | [`docs/analysis and design/ui-flows.md`](docs/analysis%20and%20design/ui-flows.md) |
-| **UI Prompts & Wireframes** | [`docs/analysis and design/ui-prompts.md`](docs/analysis%20and%20design/ui-prompts.md) |
+| **UI Flows & Screen Inventory** | [`docs/analysis-and-design/ui-flows.md`](docs/analysis-and-design/ui-flows.md) |
+| **UI Prompts & Wireframes** | [`docs/analysis-and-design/ui-prompts.md`](docs/analysis-and-design/ui-prompts.md) |
 | **Documentation Library** | [`docs/README.md`](docs/README.md) |
 
 ---
@@ -134,7 +134,7 @@ TroMateProject/
 | Student ID | Name | GitHub Handle | Primary Role |
 |:---:|:---|:---:|:---|
 | `24125008` | Nguyễn Gia Hào | [@hafonium](https://github.com/hafonium) | **Project Manager & Backend Lead** (Ledger, Debt Simplification) |
-| `24125010` | Cao Quảng Hưng | [@cqhung](https://github.com/cqhung) | **AI & Bot Engineer** (NLP parsing, Bill OCR) |
+| `24125010` | Cao Quảng Hưng | [@caoquanghung](https://github.com/caoquanghung) | **AI & Bot Engineer** (NLP parsing, Bill OCR) |
 | `24125013` | Trịnh Võ Nam Kiệt | [@tvnkiet](https://github.com/tvnkiet) | **Frontend Developer** (Mini App screens) |
 | `24125015` | Phạm Hữu Nam | [@AmnO-O](https://github.com/AmnO-O) | **UI/UX & Frontend Developer** (User flows, Design system) |
 | `24125020` | Huỳnh Chí Tôn | [@hcton](https://github.com/hcton) | **QA & Technical Writer** (Test plans, Weekly reports) |
