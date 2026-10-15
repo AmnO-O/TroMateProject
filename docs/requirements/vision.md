@@ -60,7 +60,7 @@ This vision describes the **MVP** for the TroMate product as it will be built wi
 | Ref | Document | Location |
 |---|---|---|
 | R1 | TroMate Project Proposal (PA0) — problem, users, survey evidence | `pa/PA0/project-proposal.md` |
-| R2 | TroMate Software Development Plan (SDP) | `pa/PA1-Group06/project-plan/software-development-plan.md` |
+| R2 | TroMate Software Development Plan (SDP) | `docs/management/software-development-plan.md` |
 | R3 | Course vision template (RUP *Vision*) | Moodle |
 | R4 | User survey (Google Form) & responses | Google Forms / Sheets (see R1 §6) |
 | R5 | Source code & documentation repository | https://github.com/AmnO-O/TroMateProject |

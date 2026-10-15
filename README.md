@@ -64,7 +64,7 @@ flowchart LR
 1. **Daily Expense:** Message in chat → bot parses → `PENDING` expense broadcast with *Agree / Reject / Edit* → auto-commits after 60 seconds → group ledger.
 2. **Monthly Rent Bill:** Bill photo → OCR extraction → human review/approval → offset advances → minimize debts → per-member VietQR → treasurer confirms receipt.
 
-Detailed user flows and screen inventory are documented in [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md).
+Detailed user flows and screen inventory are documented in [`docs/analysis and design/ui-flows.md`](docs/analysis%20and%20design/ui-flows.md).
 
 ---
 
@@ -85,14 +85,14 @@ TroMate is designed as a **zero-install, mobile-first** application utilizing fr
 
 ```text
 TroMateProject/
-├── docs/                 # Academic project documentation by discipline
+├── docs/                 # Living project documentation by discipline
 │   ├── analysis and design/
 │   ├── management/
 │   ├── requirements/
 │   └── test/
 ├── pa/                   # Graded course practical assignments
 │   ├── PA0/              # Project proposal & tool index
-│   └── PA1-Group06/      # Project plan, vision, UI prototyping & weekly reports
+│   └── PA1-Group06/      # PA1 submission package (folder structure only)
 ├── src/                  # Application source code (populated in Construction phase)
 └── README.md             # Project overview & guide
 ```
@@ -105,10 +105,12 @@ TroMateProject/
 |---|---|
 | **Project Proposal (PA0)** | [`pa/PA0/project-proposal.md`](pa/PA0/project-proposal.md) |
 | **Tools & Infrastructure Index (PA0)** | [`pa/PA0/tools.md`](pa/PA0/tools.md) |
-| **Software Development Plan (PA1)** | [`pa/PA1-Group06/project-plan/software-development-plan.md`](pa/PA1-Group06/project-plan/software-development-plan.md) |
-| **Vision Document (PA1)** | [`pa/PA1-Group06/vision/vision-document.md`](pa/PA1-Group06/vision/vision-document.md) |
-| **UI Flows & Screen Inventory (PA1)** | [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md) |
-| **UI Prompts & Wireframes (PA1)** | [`pa/PA1-Group06/ui-prototyping/ui-prompts.md`](pa/PA1-Group06/ui-prototyping/ui-prompts.md) |
+| **Software Development Plan** | [`docs/management/software-development-plan.md`](docs/management/software-development-plan.md) |
+| **Task Assignment** | [`docs/management/task-assignment.md`](docs/management/task-assignment.md) |
+| **Vision Document** | [`docs/requirements/vision.md`](docs/requirements/vision.md) |
+| **UI Flows & Screen Inventory** | [`docs/analysis and design/ui-flows.md`](docs/analysis%20and%20design/ui-flows.md) |
+| **UI Prompts & Wireframes** | [`docs/analysis and design/ui-prompts.md`](docs/analysis%20and%20design/ui-prompts.md) |
+| **Documentation Library** | [`docs/README.md`](docs/README.md) |
 
 ---
 
