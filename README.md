@@ -19,40 +19,30 @@ Practical assignments for **Elements of Software Engineering** (24A01) — Advan
 
 ---
 
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Key Features](#key-features)
-- [How It Works](#how-it-works)
-- [Platform & Services](#platform-and-services)
-- [Project Layout](#project-layout)
-- [Documentation Index](#documentation-index)
-- [Status & Roadmap](#status)
-- [Team & Responsibilities](#team)
-
----
-
 ## Overview
 
 TroMate lives directly inside your roommate group chat (Telegram Bot + Mini App) and handles all the shared bookkeeping nobody wants to do manually:
 
-- 💬 **Natural-Language Chat Logging:** Turn everyday messages like *"mua nước 50k chia 3"* instantly into structured ledger entries.
-- 🧾 **OCR Rent Bill Parsing:** Extract base rent, electricity/water meter readings, and surcharges from photo invoices (written or printed).
-- 🔀 **Debt Simplification:** Automatically minimize circular debts so members settle with the fewest possible transfers.
-- 📱 **One-Tap VietQR Settlement:** Generate exact-amount VietQR codes for instant transfers. *Scan ≠ Paid*: treasurer verifies receipt before clearing debt.
+- **Natural-Language Chat Logging:** Turn everyday messages like *"mua nước 50k chia 3"* instantly into structured ledger entries.
+- **OCR Rent Bill Parsing:** Extract base rent, electricity/water meter readings, and surcharges from photo invoices (written or printed).
+- **Debt Simplification:** Automatically minimize circular debts so members settle with the fewest possible transfers.
+- **One-Tap VietQR Settlement:** Generate exact-amount VietQR codes for instant transfers. *Scan ≠ Paid*: treasurer verifies receipt before clearing debt.
 
 ---
 
 ## Key Features
 
-| Core Feature | Description | Priority |
+| Feature | Description | Spec |
 |---|---|---|
-| **Quick Chat Split** | Parses everyday chat entries into editable expense items (amount, payer, split method, beneficiaries). | MVP Core |
-| **Rent Bill OCR** | Scans rent bills, calculates itemized charges, and offsets past advances. | MVP Core |
-| **Debt Simplification** | Graph-based cash flow optimization to eliminate circular debt chains. | MVP Core |
-| **VietQR Settlement** | Generates dynamic NAPAS VietQR with treasurer manual confirmation flow. | MVP Core |
-| **Meter Scanner** | Photographed meter reading verification against landlord bills. | Supporting |
-| **Polite Reminders** | Friendly/Meme automated debt reminders after a 24-hour cutoff. | Supporting |
+| **Natural-Language Parsing** | Turns chat text (and text + photo context) into an expense — amount, payer, beneficiaries and description — defaulting to an equal split. | §1 |
+| **Rent Bill OCR & Meter Scanner** | Reads the rent invoice (base rent, electricity/water readings, surcharges) and cross-checks the hallway meters against it. | §2 |
+| **Usage Anomaly Detector** | Flags consumption spikes against a 3-month baseline (possible leaks or faults). | §2 |
+| **Debt Simplification** | Solves minimum cash flow on the member graph to cancel circular debts and minimize transfers. | §3 |
+| **VietQR Settlement** | EMVCo/NAPAS QR pre-filled with the exact amount and memo; the payee taps *Confirm Received*. | §4 |
+| **Polite Meme Reminders** | Auto-mentions unsettled members with a meme after 24 hours. | §5 |
+| **Monthly Report** | End-of-month infographics: electricity/water, shared meals, average per person and trends. | §6 |
+| **Confirmation State Machine** | Expenses start `PENDING` with Agree / Reject / Edit, auto-commit after 60 seconds, and freeze on rejection. | §7 |
+| **Mini App / Web UI** | Balance sheets, cash-flow charts, a filterable transaction log, admin edit/delete and group settings. | §8 |
 
 ---
 
@@ -71,7 +61,7 @@ flowchart LR
 
 ### Primary User Journeys
 
-1. **Daily Expense:** Message in chat → bot parses → editable preview → member confirms → group ledger.
+1. **Daily Expense:** Message in chat → bot parses → `PENDING` expense broadcast with *Agree / Reject / Edit* → auto-commits after 60 seconds → group ledger.
 2. **Monthly Rent Bill:** Bill photo → OCR extraction → human review/approval → offset advances → minimize debts → per-member VietQR → treasurer confirms receipt.
 
 Detailed user flows and screen inventory are documented in [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md).
@@ -84,7 +74,7 @@ TroMate is designed as a **zero-install, mobile-first** application utilizing fr
 
 | Component / Service | Technology | Details / Access |
 |---|---|---|
-| **User Interface** | Telegram Bot API + Mini App | Main chat bot interface & embedded Web App shell |
+| **User Interface** | Telegram Bot API + Mini App | Chat bot interface and embedded Web App shell (also usable as a standalone web app) |
 | **Payment Gateway** | VietQR (NAPAS) | Dynamic QR code generation for exact-amount transfers |
 | **Backend & Database** | Python / Node.js *(TBD)* | API service, OCR/NLP pipeline, and ledger storage |
 | **Secondary Channel** | Zalo API *(Future)* | Potential secondary integration post-MVP |
@@ -104,6 +94,7 @@ TroMateProject/
 │   ├── PA0/              # Project proposal & tool index
 │   └── PA1-Group06/      # Project plan, vision, UI prototyping & weekly reports
 ├── src/                  # Application source code (populated in Construction phase)
+├── MVP_features.md       # MVP feature specification (§1–§8)
 └── README.md             # Project overview & guide
 ```
 
@@ -118,6 +109,7 @@ TroMateProject/
 | **Software Development Plan (PA1)** | [`pa/PA1-Group06/project-plan/software-development-plan.md`](pa/PA1-Group06/project-plan/software-development-plan.md) |
 | **UI Flows & Screen Inventory (PA1)** | [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md) |
 | **UI Prompts & Wireframes (PA1)** | [`pa/PA1-Group06/ui-prototyping/ui-prompts.md`](pa/PA1-Group06/ui-prototyping/ui-prompts.md) |
+| **MVP Feature Specification** | [`MVP_features.md`](MVP_features.md) |
 
 ---
 
