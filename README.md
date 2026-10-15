@@ -1,90 +1,152 @@
-# TroMate — Roommate expense & rent reconciliation bot
+# TroMate — Roommate Expense & Rent Reconciliation Bot
 
-Practical assignments for **Elements of Software Engineering** (24A01),
-University of Science, VNU-HCM (Advanced Program in Computer Science). Group 06.
+[![Status](https://img.shields.io/badge/Status-Inception%20Phase%20(Sprint%201)-blue.svg)](#status)
+![Course](https://img.shields.io/badge/Course-CS300%20(24A01)-green.svg)
+[![Group](https://img.shields.io/badge/Group-06-orange.svg)](#team)
+[![Platform](https://img.shields.io/badge/Platform-Telegram%20Mini%20App-2CA5E0.svg)](#platform-and-services)
 
-TroMate lives in the roommate group chat and does the shared-money bookkeeping
-nobody wants to do by hand. An ordinary message becomes an expense; a photo of
-the rent bill becomes itemized charges; the circular debts cancel out; and each
-person gets one exact-amount VietQR to pay.
+> **The dorm's automatic "chief accountant"** — living right inside your group chat, eliminating the friction of tracking shared money, parsing rent bills, and settling debts.
+
+Practical assignments for **Elements of Software Engineering** (24A01) — Advanced Program in Computer Science (APCS), Faculty of Information Technology, University of Science, VNU-HCM.
 
 ---
 
-## 1. Team
+## Quick Links
 
-| Student ID | Name | GitHub | Responsibility |
-|---|---|---|---|
-| `24125008` | Nguyễn Gia Hào | hafonium | Project manager, backend — ledger and debt simplification |
-| `24125010` | Cao Quảng Hưng | _TBD_ | Bot and AI — natural-language parsing, bill OCR |
-| `24125013` | Trịnh Võ Nam Kiệt | _TBD_ | Frontend — Mini App screens |
-| `24125015` | Phạm Hữu Nam | AmnO-O | Frontend and UI/UX — flow, screens, reports |
-| `24125020` | Huỳnh Chí Tôn | _TBD_ | QA and documentation — test plan, weekly reports |
+- **GitHub Repository:** [AmnO-O/TroMateProject](https://github.com/AmnO-O/TroMateProject)
+- **Jira Board:** [APCS CS300 Jira](https://apcs24-cs300.atlassian.net/jira)
+- **User Survey Form:** [Google Forms Survey](https://docs.google.com/forms/d/e/1FAIpQLScM5yP4aliMYLqN7aDY88b7SqNZ4aVUaF5TYSiHEhPrL0CenA/viewform)
 
-## 2. What the app does
+---
 
-- **Quick split from chat** — "mua nước 50k chia 3" becomes an expense you can
-  edit before it is saved: amount, payer, split method and who shares it.
-- **Rent bill reading** — the treasurer photographs the bill; OCR pulls out base
-  rent, electricity and water readings, unit prices and surcharges for review.
-- **Fewest transfers** — circular and chain debts are simplified so members
-  settle with the smallest number of payments.
-- **One-tap settlement** — a VietQR for the exact amount. Scanning is not
-  payment; the treasurer confirms receipt before anyone is marked as paid.
-- **Monthly report** — where the money went, split by category and by person.
+## 📋 Table of Contents
 
-## 3. How it works
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [How It Works](#how-it-works)
+- [Platform & Services](#platform-and-services)
+- [Project Layout](#project-layout)
+- [Documentation Index](#documentation-index)
+- [Status & Roadmap](#status)
+- [Team & Responsibilities](#team)
 
-```
-Member/Treasurer ─► Bot (NLP + OCR) ─► Group Ledger ─► Debt Simplification ─► VietQR ─► Bank
-                                                          ▲                                │
-                                                          └──── treasurer confirms ◄────────┘
-```
+---
 
-Two journeys matter most:
+## Overview
 
-- **Daily expense:** chat → parsed → editable preview → confirm → ledger.
-- **Rent bill:** photo → OCR fields → human review/approval → offset advances →
-  minimize debts → per-member VietQR → treasurer confirms receipt.
+TroMate lives directly inside your roommate group chat (Telegram Bot + Mini App) and handles all the shared bookkeeping nobody wants to do manually:
 
-The full flows and the screen inventory are in
-[`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md).
+- 💬 **Natural-Language Chat Logging:** Turn everyday messages like *"mua nước 50k chia 3"* instantly into structured ledger entries.
+- 🧾 **OCR Rent Bill Parsing:** Extract base rent, electricity/water meter readings, and surcharges from photo invoices (written or printed).
+- 🔀 **Debt Simplification:** Automatically minimize circular debts so members settle with the fewest possible transfers.
+- 📱 **One-Tap VietQR Settlement:** Generate exact-amount VietQR codes for instant transfers. *Scan ≠ Paid*: treasurer verifies receipt before clearing debt.
 
-## 4. Platform and services
+---
 
-Mobile-first web app, delivered through the **Telegram Bot API** and a
-**Mini App** (nothing to install). Payments use **VietQR / NAPAS**. **Zalo** is
-a later option, subject to its API policy.
+## Key Features
 
-| Service | Key needed | Used for |
+| Core Feature | Description | Priority |
 |---|---|---|
-| Telegram Bot API + Mini App | no | the chat interface and the app shell |
-| VietQR / NAPAS | no | exact-amount payment codes |
-| Hosting + database | _TBD_ | backend service, ledger storage |
-| Zalo | _TBD_ | future channel, not in the MVP |
-
-Only free tiers are used — the project has no budget. The exact stack is settled
-during Elaboration.
-
-## 5. Project layout
-
-```
-TroMateProject/
-├── docs/              # analysis & design, management, requirements, test
-├── pa/                # graded practical assignments, one folder per assignment
-│   ├── PA0/           # project proposal, tools and access index
-│   └── PA1-Group06/   # project plan, vision, UI prototyping and weekly reports
-├── src/               # application source code (populated during Construction)
-└── README.md          # this project overview
-```
-
-## 6. Status
-
-**Inception (Sprint 1).** The proposal and project plan are done and the UI is
-being prototyped. There is no runnable build yet; source code lands in `src/`
-during the Construction phase. The plan runs three phases over five two-week
-sprints.
+| **Quick Chat Split** | Parses everyday chat entries into editable expense items (amount, payer, split method, beneficiaries). | MVP Core |
+| **Rent Bill OCR** | Scans rent bills, calculates itemized charges, and offsets past advances. | MVP Core |
+| **Debt Simplification** | Graph-based cash flow optimization to eliminate circular debt chains. | MVP Core |
+| **VietQR Settlement** | Generates dynamic NAPAS VietQR with treasurer manual confirmation flow. | MVP Core |
+| **Meter Scanner** | Photographed meter reading verification against landlord bills. | Supporting |
+| **Polite Reminders** | Friendly/Meme automated debt reminders after a 24-hour cutoff. | Supporting |
 
 ---
 
-*Elements of Software Engineering — 24A01 · Group 06 · University of Science,
-VNU-HCM (FITUS)*
+## How It Works
+
+```mermaid
+flowchart LR
+    A["Member / Treasurer"] -->|"message or bill photo"| B["TroMate Bot<br/>(NLP + OCR)"]
+    B --> C[("Group Ledger")]
+    C --> D["Debt Simplification"]
+    D --> E["VietQR"]
+    E --> F["Bank App"]
+    F -->|"transfer"| G["Treasurer confirms receipt"]
+    G --> C
+```
+
+### Primary User Journeys
+
+1. **Daily Expense:** Message in chat → bot parses → editable preview → member confirms → group ledger.
+2. **Monthly Rent Bill:** Bill photo → OCR extraction → human review/approval → offset advances → minimize debts → per-member VietQR → treasurer confirms receipt.
+
+Detailed user flows and screen inventory are documented in [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md).
+
+---
+
+## Platform and Services
+
+TroMate is designed as a **zero-install, mobile-first** application utilizing free-tier infrastructure.
+
+| Component / Service | Technology | Details / Access |
+|---|---|---|
+| **User Interface** | Telegram Bot API + Mini App | Main chat bot interface & embedded Web App shell |
+| **Payment Gateway** | VietQR (NAPAS) | Dynamic QR code generation for exact-amount transfers |
+| **Backend & Database** | Python / Node.js *(TBD)* | API service, OCR/NLP pipeline, and ledger storage |
+| **Secondary Channel** | Zalo API *(Future)* | Potential secondary integration post-MVP |
+
+---
+
+## Project Layout
+
+```text
+TroMateProject/
+├── docs/                 # Academic project documentation by discipline
+│   ├── analysis and design/
+│   ├── management/
+│   ├── requirements/
+│   └── test/
+├── pa/                   # Graded course practical assignments
+│   ├── PA0/              # Project proposal & tool index
+│   └── PA1-Group06/      # Project plan, vision, UI prototyping & weekly reports
+├── src/                  # Application source code (populated in Construction phase)
+└── README.md             # Project overview & guide
+```
+
+---
+
+## Documentation Index
+
+| Deliverable / Artifact | Path / Location |
+|---|---|
+| **Project Proposal (PA0)** | [`pa/PA0/project-proposal.md`](pa/PA0/project-proposal.md) |
+| **Tools & Infrastructure Index (PA0)** | [`pa/PA0/tools.md`](pa/PA0/tools.md) |
+| **Software Development Plan (PA1)** | [`pa/PA1-Group06/project-plan/software-development-plan.md`](pa/PA1-Group06/project-plan/software-development-plan.md) |
+| **UI Flows & Screen Inventory (PA1)** | [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md) |
+| **UI Prompts & Wireframes (PA1)** | [`pa/PA1-Group06/ui-prototyping/ui-prompts.md`](pa/PA1-Group06/ui-prototyping/ui-prompts.md) |
+
+---
+
+## Status
+
+**Current Phase:** `Inception Phase (Sprint 1)`
+
+- [x] Project Proposal & Tool Setup (PA0)
+- [x] Problem Validation & User Survey
+- [x] Software Development Plan & Task Assignment (PA1)
+- [x] Vision Document & UI Wireframing (PA1)
+- [ ] Elaboration Phase — Architecture & Spikes (Sprint 2–3)
+- [ ] Construction Phase — Development & Testing (Sprint 4–5)
+
+---
+
+## Team
+
+**Group 06 — Elements of Software Engineering (24A01)**
+
+| Student ID | Name | GitHub Handle | Primary Role |
+|:---:|:---|:---:|:---|
+| `24125008` | Nguyễn Gia Hào | [@hafonium](https://github.com/hafonium) | **Project Manager & Backend Lead** (Ledger, Debt Simplification) |
+| `24125010` | Cao Quảng Hưng | [@cqhung](https://github.com/cqhung) | **AI & Bot Engineer** (NLP parsing, Bill OCR) |
+| `24125013` | Trịnh Võ Nam Kiệt | [@tvnkiet](https://github.com/tvnkiet) | **Frontend Developer** (Mini App screens) |
+| `24125015` | Phạm Hữu Nam | [@AmnO-O](https://github.com/AmnO-O) | **UI/UX & Frontend Developer** (User flows, Design system) |
+| `24125020` | Huỳnh Chí Tôn | [@hcton](https://github.com/hcton) | **QA & Technical Writer** (Test plans, Weekly reports) |
+
+---
+
+*Faculty of Information Technology — Advanced Program in Computer Science (APCS)*  
+*University of Science, VNU-HCM*
