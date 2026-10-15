@@ -106,6 +106,7 @@ TroMateProject/
 | **Project Proposal (PA0)** | [`pa/PA0/project-proposal.md`](pa/PA0/project-proposal.md) |
 | **Tools & Infrastructure Index (PA0)** | [`pa/PA0/tools.md`](pa/PA0/tools.md) |
 | **Software Development Plan (PA1)** | [`pa/PA1-Group06/project-plan/software-development-plan.md`](pa/PA1-Group06/project-plan/software-development-plan.md) |
+| **Vision Document (PA1)** | [`pa/PA1-Group06/vision/vision-document.md`](pa/PA1-Group06/vision/vision-document.md) |
 | **UI Flows & Screen Inventory (PA1)** | [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md) |
 | **UI Prompts & Wireframes (PA1)** | [`pa/PA1-Group06/ui-prototyping/ui-prompts.md`](pa/PA1-Group06/ui-prototyping/ui-prompts.md) |
 
