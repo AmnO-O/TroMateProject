@@ -10,23 +10,6 @@
 
 ---
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Problem Statement](#problem-statement)
-- [Key Features](#key-features)
-- [How It Works](#how-it-works)
-- [Main Screens](#main-screens)
-- [Platform & Technology](#platform--technology)
-- [Repository Structure](#repository-structure)
-- [Folder Guide](#folder-guide)
-- [Documentation](#documentation)
-- [Roadmap](#roadmap)
-- [Team](#team)
-- [Links](#links)
-
----
-
 ## Overview
 
 TroMate is a chatbot that lives in the roommate group chat (Telegram, with a web/Mini App) and removes the friction of tracking shared money:
