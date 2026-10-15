@@ -1,133 +1,111 @@
-# TroMate
+# TroMate — Roommate expense & rent reconciliation bot
 
-**Roommate expense & rent reconciliation bot** — the dorm's automatic "chief accountant", living right inside your group chat.
+Practical assignments for **Elements of Software Engineering** (24A01),
+University of Science, VNU-HCM (Advanced Program in Computer Science). Group 06.
 
-| | |
-|---|---|
-| **Course** | Elements of Software Engineering — 24A01 |
-| **Group** | 06 |
-| **Status** | Inception phase (Sprint 1) |
+TroMate lives in the roommate group chat and does the shared-money bookkeeping
+nobody wants to do by hand. An ordinary message becomes an expense; a photo of
+the rent bill becomes itemized charges; the circular debts cancel out; and each
+person gets one exact-amount VietQR to pay.
 
 ---
 
-## Overview
+## 1. Team
 
-TroMate is a chatbot that lives in the roommate group chat (Telegram, with a web/Mini App) and removes the friction of tracking shared money:
+| Student ID | Name | GitHub | Responsibility |
+|---|---|---|---|
+| `24125008` | Nguyễn Gia Hào | _TBD_ | Project manager, backend — ledger and debt simplification |
+| `24125010` | Cao Quảng Hưng | _TBD_ | Bot and AI — natural-language parsing, bill OCR |
+| `24125013` | Trịnh Võ Nam Kiệt | _TBD_ | Frontend — Mini App screens |
+| `24125015` | Phạm Hữu Nam | AmnO-O | Frontend and UI/UX — flow, screens, reports |
+| `24125020` | Huỳnh Chí Tôn | _TBD_ | QA and documentation — test plan, weekly reports |
 
-- **Logs expenses from natural-language chat** — e.g. *"mua nước 50k chia 3"*.
-- **Reads rent bills and meter photos via OCR** (handwritten, thermal, or chat-image invoices).
-- **Simplifies circular debts**, so members settle with the fewest possible transfers.
-- **Settles to the exact đồng with dynamic VietQR** (NAPAS), confirmed by the treasurer.
+## 2. What the app does
 
-No installation is required — it lives where roommates already talk.
+- **Quick split from chat** — "mua nước 50k chia 3" becomes an expense you can
+  edit before it is saved: amount, payer, split method and who shares it.
+- **Rent bill reading** — the treasurer photographs the bill; OCR pulls out base
+  rent, electricity and water readings, unit prices and surcharges for review.
+- **Fewest transfers** — circular and chain debts are simplified so members
+  settle with the smallest number of payments.
+- **One-tap settlement** — a VietQR for the exact amount. Scanning is not
+  payment; the treasurer confirms receipt before anyone is marked as paid.
+- **Monthly report** — where the money went, split by category and by person.
 
-## Problem Statement
-
-1. **Fragmented micro-debts** — daily shared purchases (water, spices, Wi-Fi) are too small to bother opening an app or spreadsheet for.
-2. **Painful end-of-month rent reconciliation** — landlord invoices contain many variables (base rent, electricity readings, water, garbage, parking) that the payer computes and offsets by hand.
-3. **"Awkward debt" psychology** — circular debt chains and embarrassment about reminding roommates to pay.
-
-## Key Features
-
-| Priority | Features |
-|---|---|
-| **MVP core** | Natural-language quick split · Rent bill OCR parser · Debt-simplification engine · One-tap VietQR settlement |
-| **Supporting** | Meter scanner · Monthly expense report · Shared room fund · Chore scheduler |
-| **Later** | Polite meme reminders · Move-in/deposit checklist · Zalo integration |
-
-## How It Works
+## 3. How it works
 
 ```
-Member/Treasurer ─► Bot (NLP + OCR) ─► Group Ledger ─► Debt Simplification ─► VietQR ─► Mini App / Bank
+Member/Treasurer ─► Bot (NLP + OCR) ─► Group Ledger ─► Debt Simplification ─► VietQR ─► Bank
                                                           ▲                                │
                                                           └──── treasurer confirms ◄────────┘
 ```
 
-Two core journeys:
+Two journeys matter most:
 
-- **Daily expense:** chat → parsed → *editable preview* (amount, payer, split, beneficiaries) → confirm → ledger.
-- **Rent bill:** photo → OCR fields → *human review/approval* → offset advances → minimize debts → per-member VietQR → *treasurer confirms receipt* (scan ≠ paid).
+- **Daily expense:** chat → parsed → editable preview → confirm → ledger.
+- **Rent bill:** photo → OCR fields → human review/approval → offset advances →
+  minimize debts → per-member VietQR → treasurer confirms receipt.
 
-## Main Screens
+The full flows and the screen inventory are in
+[`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md).
 
-The MVP comprises six main screens:
+## 4. Platform and services
 
-**Dashboard** · **Add Expense** · **Rent Bill Review** · **Settlement** (3 states) · **Monthly Report** · **Ledger**
+Mobile-first web app, delivered through the **Telegram Bot API** and a
+**Mini App** (nothing to install). Payments use **VietQR / NAPAS**. **Zalo** is
+a later option, subject to its API policy.
 
-See [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md) for the user flows and [`pa/PA1-Group06/ui-prototyping/ui-prompts.md`](pa/PA1-Group06/ui-prototyping/ui-prompts.md) for the screen designs.
+| Service | Key needed | Used for |
+|---|---|---|
+| Telegram Bot API + Mini App | no | the chat interface and the app shell |
+| VietQR / NAPAS | no | exact-amount payment codes |
+| Hosting + database | _TBD_ | backend service, ledger storage |
+| Zalo | _TBD_ | future channel, not in the MVP |
 
-## Platform & Technology
+Only free tiers are used — the project has no budget. The exact stack is settled
+during Elaboration.
 
-Mobile-first web app plus the **Telegram Bot API** and **Mini App** (no install). Payments are handled via **VietQR / NAPAS**. **Zalo** is a future option, subject to API policy.
-
-> **Tech stack — to be finalized during Elaboration.** Planned: Telegram Bot API, a backend service (NLP + OCR + ledger), a web/Mini App frontend, and a database. Free-tier services only (zero budget).
-
-## Repository Structure
+## 5. Project layout
 
 ```
-TroMateProject/
-├── docs/                      # Project documentation (by discipline)
-│   ├── analysis and design/   # UML models, architecture, design artifacts
-│   ├── management/            # Schedules, plans, meeting notes, reports
-│   ├── requirements/          # Requirements, use cases, specifications
-│   └── test/                  # Test plans, test cases, test results
-├── pa/                        # Course practical assignments (one subfolder per assignment)
-├── src/                       # Application source code
-└── README.md
+docs/            analysis and design, management, requirements and test notes
+pa/              graded practical assignments, one subfolder per assignment
+  PA0/           project proposal, tools and access index
+  PA1-Group06/   project plan, vision, UI prototyping and weekly reports
+src/             application source code, populated during Construction
 ```
 
-## Folder Guide
-
-Each folder has a single, clearly scoped purpose:
-
-| Folder | Purpose |
-|---|---|
-| **`docs/`** | Long-lived project documentation, organized by discipline. |
-| └ `docs/analysis and design/` | Analysis and design artifacts — UML models, software architecture, and design decisions. |
-| └ `docs/management/` | Management artifacts — schedules, plans, meeting notes, and status reports. |
-| └ `docs/requirements/` | Requirements and specifications — functional/non-functional requirements and use cases. |
-| └ `docs/test/` | Quality assurance artifacts — test plan, test cases, and test results. |
-| **`pa/`** | Graded practical-assignment deliverables, one subfolder per assignment (e.g. `PA0`, `PA1-Group06`). |
-| **`src/`** | Application source code, populated during the Construction phase. |
-
-## Documentation
+## 6. Deliverables
 
 | Document | Location |
 |---|---|
 | Project proposal (PA0) | [`pa/PA0/project-proposal.md`](pa/PA0/project-proposal.md) |
-| Tools & access (PA0) | [`pa/PA0/tools.md`](pa/PA0/tools.md) |
+| Tools and access (PA0) | [`pa/PA0/tools.md`](pa/PA0/tools.md) |
 | Software Development Plan (PA1) | [`pa/PA1-Group06/project-plan/software-development-plan.md`](pa/PA1-Group06/project-plan/software-development-plan.md) |
 | Task assignment (PA1) | [`pa/PA1-Group06/project-plan/task-assignment.md`](pa/PA1-Group06/project-plan/task-assignment.md) |
-| User flows & screens (PA1) | [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md) |
+| User flows and screens (PA1) | [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md) |
 
-## Roadmap
+## 7. Status
 
-The project follows three phases across five two-week sprints:
+**Inception (Sprint 1).** The proposal and project plan are done and the UI is
+being prototyped. There is no runnable build yet; source code lands in `src/`
+during the Construction phase. The plan runs three phases over five two-week
+sprints.
 
-| Phase | Sprints | Focus |
-|---|---|---|
-| **Inception** | Sprint 1 | Problem validation, project plan, vision, UI sketches |
-| **Elaboration** | Sprints 2–3 | Architecture & detailed design, use cases, NLP/OCR spikes, UI prototype |
-| **Construction** | Sprints 4–5 | Implementation, integration, testing, and release |
+## 8. Known limitations and assumptions
 
-## Team
-
-**Group 06**
-
-| Name | Student ID | Email | Role |
-|---|---|---|---|
-| Nguyễn Gia Hào | 24125008 | nghao2420@apcs.fitus.edu.vn | Project Manager · Backend |
-| Cao Quảng Hưng | 24125010 | cqhung2420@apcs.fitus.edu.vn | Backend · AI (NLP/OCR) |
-| Trịnh Võ Nam Kiệt | 24125013 | tvnkiet2406@apcs.fitus.edu.vn | Frontend (Mini App) |
-| Phạm Hữu Nam | 24125015 | phnam2409@apcs.fitus.edu.vn | Frontend · UI/UX |
-| Huỳnh Chí Tôn | 24125020 | hcton2426@apcs.fitus.edu.vn | QA · Documentation |
-
-## Links
-
-- **Repository:** <https://github.com/AmnO-O/TroMateProject>
-- **Jira board:** <https://apcs24-cs300.atlassian.net/jira>
-- **User survey:** <https://docs.google.com/forms/d/e/1FAIpQLScM5yP4aliMYLqN7aDY88b7SqNZ4aVUaF5TYSiHEhPrL0CenA/viewform>
+- **No budget.** Everything runs on free tiers; some services sleep when idle,
+  so a first request after a pause can be slow.
+- **OCR can be wrong.** Handwritten or faint bills misread, so extracted values
+  are always shown for review before they reach the ledger.
+- **Privacy is the top concern.** 67% of survey respondents named data leakage
+  as their main worry; the design minimizes stored personal data and asks for
+  consent explicitly.
+- **Anyone can read the group chat.** Expense messages are posted where the
+  whole room can see them, which is fine for this use but not for private notes.
+- **Zalo is not supported yet.** It depends on API access we cannot assume.
 
 ---
 
-*Elements of Software Engineering — 24A01 · Group 06 · University of Science (FITUS)*
+*Elements of Software Engineering — 24A01 · Group 06 · University of Science,
+VNU-HCM (FITUS)*
