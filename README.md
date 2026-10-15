@@ -14,7 +14,7 @@ person gets one exact-amount VietQR to pay.
 
 | Student ID | Name | GitHub | Responsibility |
 |---|---|---|---|
-| `24125008` | Nguyễn Gia Hào | _TBD_ | Project manager, backend — ledger and debt simplification |
+| `24125008` | Nguyễn Gia Hào | hafonium | Project manager, backend — ledger and debt simplification |
 | `24125010` | Cao Quảng Hưng | _TBD_ | Bot and AI — natural-language parsing, bill OCR |
 | `24125013` | Trịnh Võ Nam Kiệt | _TBD_ | Frontend — Mini App screens |
 | `24125015` | Phạm Hữu Nam | AmnO-O | Frontend and UI/UX — flow, screens, reports |
@@ -68,42 +68,21 @@ during Elaboration.
 ## 5. Project layout
 
 ```
-docs/            analysis and design, management, requirements and test notes
-pa/              graded practical assignments, one subfolder per assignment
-  PA0/           project proposal, tools and access index
-  PA1-Group06/   project plan, vision, UI prototyping and weekly reports
-src/             application source code, populated during Construction
+TroMateProject/
+├── docs/              # analysis & design, management, requirements, test
+├── pa/                # graded practical assignments, one folder per assignment
+│   ├── PA0/           # project proposal, tools and access index
+│   └── PA1-Group06/   # project plan, vision, UI prototyping and weekly reports
+├── src/               # application source code (populated during Construction)
+└── README.md          # this project overview
 ```
 
-## 6. Deliverables
-
-| Document | Location |
-|---|---|
-| Project proposal (PA0) | [`pa/PA0/project-proposal.md`](pa/PA0/project-proposal.md) |
-| Tools and access (PA0) | [`pa/PA0/tools.md`](pa/PA0/tools.md) |
-| Software Development Plan (PA1) | [`pa/PA1-Group06/project-plan/software-development-plan.md`](pa/PA1-Group06/project-plan/software-development-plan.md) |
-| Task assignment (PA1) | [`pa/PA1-Group06/project-plan/task-assignment.md`](pa/PA1-Group06/project-plan/task-assignment.md) |
-| User flows and screens (PA1) | [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md) |
-
-## 7. Status
+## 6. Status
 
 **Inception (Sprint 1).** The proposal and project plan are done and the UI is
 being prototyped. There is no runnable build yet; source code lands in `src/`
 during the Construction phase. The plan runs three phases over five two-week
 sprints.
-
-## 8. Known limitations and assumptions
-
-- **No budget.** Everything runs on free tiers; some services sleep when idle,
-  so a first request after a pause can be slow.
-- **OCR can be wrong.** Handwritten or faint bills misread, so extracted values
-  are always shown for review before they reach the ledger.
-- **Privacy is the top concern.** 67% of survey respondents named data leakage
-  as their main worry; the design minimizes stored personal data and asks for
-  consent explicitly.
-- **Anyone can read the group chat.** Expense messages are posted where the
-  whole room can see them, which is fine for this use but not for private notes.
-- **Zalo is not supported yet.** It depends on API access we cannot assume.
 
 ---
 
