@@ -88,18 +88,7 @@ TroMateProject/
 │   ├── management/            # Schedules, plans, meeting notes, reports
 │   ├── requirements/          # Requirements, use cases, specifications
 │   └── test/                  # Test plans, test cases, test results
-├── pa/                        # Course practical assignments (graded deliverables)
-│   ├── PA0/                   # Group registration & tools setup
-│   │   ├── interviews/        # User interview guide and notes
-│   │   ├── project-proposal.md
-│   │   └── tools.md
-│   └── PA1-Group06/           # Project plan, vision, and UI prototyping
-│       ├── project-plan/      # Software Development Plan + task assignment
-│       ├── ui-prototyping/    # User flows, screen inventory, UI prompts
-│       ├── vision/            # Vision document (in progress)
-│       ├── weekly-reports/    # Weekly progress reports
-│       ├── checklist.md
-│       └── division-of-work.md
+├── pa/                        # Course practical assignments (one subfolder per assignment)
 ├── src/                       # Application source code
 └── README.md
 ```
@@ -115,18 +104,7 @@ Each folder has a single, clearly scoped purpose:
 | └ `docs/management/` | Management artifacts — schedules, plans, meeting notes, and status reports. |
 | └ `docs/requirements/` | Requirements and specifications — functional/non-functional requirements and use cases. |
 | └ `docs/test/` | Quality assurance artifacts — test plan, test cases, and test results. |
-| **`pa/`** | Official deliverables submitted for each practical assignment (graded). |
-| └ `pa/PA0/` | **PA0** — group registration and tools setup. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA0/interviews/` | User interview guide and interview notes. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA0/project-proposal.md` | Problem, target users, proposed solution, and features. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA0/tools.md` | Tools and access index (GitHub, Jira, survey). |
-| └ `pa/PA1-Group06/` | **PA1** — project plan, vision, and UI prototyping. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA1-Group06/project-plan/` | Software Development Plan (SDP) and detailed task assignment. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA1-Group06/ui-prototyping/` | User flows, screen inventory, and paste-ready UI prompts. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA1-Group06/vision/` | Vision document (in progress). |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA1-Group06/weekly-reports/` | Weekly progress reports. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA1-Group06/checklist.md` | Requirement checklist for the PA1 submission. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA1-Group06/division-of-work.md` | Together-vs-separate responsibilities for PA1. |
+| **`pa/`** | Graded practical-assignment deliverables, one subfolder per assignment (e.g. `PA0`, `PA1-Group06`). |
 | **`src/`** | Application source code, populated during the Construction phase. |
 
 ## Documentation
