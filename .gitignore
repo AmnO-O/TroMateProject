@@ -21,3 +21,6 @@ __pycache__/
 dist/
 build/
 *.log
+
+# Local scratch / unpublished drafts
+MVP_features.md
