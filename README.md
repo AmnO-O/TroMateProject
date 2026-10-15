@@ -71,7 +71,7 @@ The MVP comprises six main screens:
 
 **Dashboard** · **Add Expense** · **Rent Bill Review** · **Settlement** (3 states) · **Monthly Report** · **Ledger**
 
-See [`pa/PA1/ui-prototyping/flow.md`](pa/PA1/ui-prototyping/flow.md) for the user flows and [`pa/PA1/ui-prototyping/ui-prompts.md`](pa/PA1/ui-prototyping/ui-prompts.md) for the screen designs.
+See [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md) for the user flows and [`pa/PA1-Group06/ui-prototyping/ui-prompts.md`](pa/PA1-Group06/ui-prototyping/ui-prompts.md) for the screen designs.
 
 ## Platform & Technology
 
@@ -93,7 +93,7 @@ TroMateProject/
 │   │   ├── interviews/        # User interview guide and notes
 │   │   ├── project-proposal.md
 │   │   └── tools.md
-│   └── PA1/                   # Project plan, vision, and UI prototyping
+│   └── PA1-Group06/           # Project plan, vision, and UI prototyping
 │       ├── project-plan/      # Software Development Plan + task assignment
 │       ├── ui-prototyping/    # User flows, screen inventory, UI prompts
 │       ├── vision/            # Vision document (in progress)
@@ -120,13 +120,13 @@ Each folder has a single, clearly scoped purpose:
 | &nbsp;&nbsp;&nbsp;└ `pa/PA0/interviews/` | User interview guide and interview notes. |
 | &nbsp;&nbsp;&nbsp;└ `pa/PA0/project-proposal.md` | Problem, target users, proposed solution, and features. |
 | &nbsp;&nbsp;&nbsp;└ `pa/PA0/tools.md` | Tools and access index (GitHub, Jira, survey). |
-| └ `pa/PA1/` | **PA1** — project plan, vision, and UI prototyping. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA1/project-plan/` | Software Development Plan (SDP) and detailed task assignment. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA1/ui-prototyping/` | User flows, screen inventory, and paste-ready UI prompts. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA1/vision/` | Vision document (in progress). |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA1/weekly-reports/` | Weekly progress reports. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA1/checklist.md` | Requirement checklist for the PA1 submission. |
-| &nbsp;&nbsp;&nbsp;└ `pa/PA1/division-of-work.md` | Together-vs-separate responsibilities for PA1. |
+| └ `pa/PA1-Group06/` | **PA1** — project plan, vision, and UI prototyping. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA1-Group06/project-plan/` | Software Development Plan (SDP) and detailed task assignment. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA1-Group06/ui-prototyping/` | User flows, screen inventory, and paste-ready UI prompts. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA1-Group06/vision/` | Vision document (in progress). |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA1-Group06/weekly-reports/` | Weekly progress reports. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA1-Group06/checklist.md` | Requirement checklist for the PA1 submission. |
+| &nbsp;&nbsp;&nbsp;└ `pa/PA1-Group06/division-of-work.md` | Together-vs-separate responsibilities for PA1. |
 | **`src/`** | Application source code, populated during the Construction phase. |
 
 ## Documentation
@@ -135,9 +135,9 @@ Each folder has a single, clearly scoped purpose:
 |---|---|
 | Project proposal (PA0) | [`pa/PA0/project-proposal.md`](pa/PA0/project-proposal.md) |
 | Tools & access (PA0) | [`pa/PA0/tools.md`](pa/PA0/tools.md) |
-| Software Development Plan (PA1) | [`pa/PA1/project-plan/software-development-plan.md`](pa/PA1/project-plan/software-development-plan.md) |
-| Task assignment (PA1) | [`pa/PA1/project-plan/task-assignment.md`](pa/PA1/project-plan/task-assignment.md) |
-| User flows & screens (PA1) | [`pa/PA1/ui-prototyping/flow.md`](pa/PA1/ui-prototyping/flow.md) |
+| Software Development Plan (PA1) | [`pa/PA1-Group06/project-plan/software-development-plan.md`](pa/PA1-Group06/project-plan/software-development-plan.md) |
+| Task assignment (PA1) | [`pa/PA1-Group06/project-plan/task-assignment.md`](pa/PA1-Group06/project-plan/task-assignment.md) |
+| User flows & screens (PA1) | [`pa/PA1-Group06/ui-prototyping/flow.md`](pa/PA1-Group06/ui-prototyping/flow.md) |
 
 ## Roadmap
 

@@ -55,7 +55,7 @@ This SDP describes the plan to be used by the **TroMate** project, including dep
 | Ref | Document | Location |
 |---|---|---|
 | R1 | TroMate Project Proposal (PA0) | `pa/PA0/project-proposal.md` |
-| R2 | TroMate Vision Document | `pa/PA1/vision/` |
+| R2 | TroMate Vision Document | `pa/PA1-Group06/vision/` |
 | R3 | This course's project plan template (RUP *Software Development Plan (Small Project)*) | Moodle |
 | R4 | Course lecture notes on project assignments and schedule | Moodle |
 | R5 | Source code & documentation repository | https://github.com/AmnO-O/TroMateProject |

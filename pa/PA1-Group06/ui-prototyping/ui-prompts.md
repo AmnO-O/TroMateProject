@@ -171,5 +171,5 @@ STYLE NOTES: dense but readable; amounts right-aligned; category icons color-cod
 
 - Prepend the **shared design system** (Section 0) to each screen prompt.
 - Generate at **390×844**; a Telegram shell makes it obvious the app lives in the chat.
-- After generating, drop the images into `pa/PA1/ui-prototyping/` and reference them in the PA1 UI section.
+- After generating, drop the images into `pa/PA1-Group06/ui-prototyping/` and reference them in the PA1 UI section.
 - Keep the **six** screens for PA1 (S2–S7); S1/S9/S10/S11 are for later.
