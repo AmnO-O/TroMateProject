@@ -150,4 +150,4 @@ The MVP scope completely covers **zero-friction logging, 1-tap settlement, and a
 
 * **Decision Status:** Approved & Agreed by Team
 * **Target Release:** PA1 Vision Document, Project Plan, SRS & UI Prototype Baseline
-* **Documentation Link:** `[Repository Documentation / docs/PA1-MVP-Scope-Decision.md]`
+* **Documentation Link:** `[Repository Documentation / docs/management/MVP_plan.md]`
