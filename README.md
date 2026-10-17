@@ -137,7 +137,7 @@ TroMateProject/
 | `24125010` | Cao Quảng Hưng | [@caoquanghung](https://github.com/caoquanghung) | **AI & Bot Engineer** (NLP parsing, Bill OCR) |
 | `24125013` | Trịnh Võ Nam Kiệt | [@tvnkiet](https://github.com/tvnkiet) | **Frontend Developer** (Mini App screens) |
 | `24125015` | Phạm Hữu Nam | [@AmnO-O](https://github.com/AmnO-O) | **UI/UX & Frontend Developer** (User flows, Design system) |
-| `24125020` | Huỳnh Chí Tôn | [@hcton](https://github.com/hcton) | **QA & Technical Writer** (Test plans, Weekly reports) |
+| `24125020` | Huỳnh Chí Tôn | [@hikito-otikih](https://github.com/hikito-otikih) | **QA & Technical Writer** (Test plans, Weekly reports) |
 
 ---
 
