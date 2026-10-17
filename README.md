@@ -133,11 +133,11 @@ TroMateProject/
 
 | Student ID | Name | GitHub Handle | Primary Role |
 |:---:|:---|:---:|:---|
-| `24125008` | Nguyễn Gia Hào | [@hafonium](https://github.com/hafonium) | **Project Manager & Backend Lead** (Ledger, Debt Simplification) |
-| `24125010` | Cao Quảng Hưng | [@caoquanghung](https://github.com/caoquanghung) | **AI & Bot Engineer** (NLP parsing, Bill OCR) |
-| `24125013` | Trịnh Võ Nam Kiệt | [@tvnkiet](https://github.com/tvnkiet) | **Frontend Developer** (Mini App screens) |
-| `24125015` | Phạm Hữu Nam | [@AmnO-O](https://github.com/AmnO-O) | **UI/UX & Frontend Developer** (User flows, Design system) |
-| `24125020` | Huỳnh Chí Tôn | [@hikito-otikih](https://github.com/hikito-otikih) | **QA & Technical Writer** (Test plans, Weekly reports) |
+| `24125008` | Nguyễn Gia Hào | [@hafonium](https://github.com/hafonium) | **Technical Lead** (Architecture, ledger, debt engine) |
+| `24125010` | Cao Quảng Hưng | [@caoquanghung](https://github.com/caoquanghung) | **QA / Tester** (Test plan, test cases, defect reporting) |
+| `24125013` | Trịnh Võ Nam Kiệt | [@tvnkiet](https://github.com/tvnkiet) | **Scrum Master / Project Lead** (Process, Jira, plans) |
+| `24125015` | Phạm Hữu Nam | [@AmnO-O](https://github.com/AmnO-O) | **UI/UX Designer** (User flows, wireframes, design system) |
+| `24125020` | Huỳnh Chí Tôn | [@hikito-otikih](https://github.com/hikito-otikih) | **Product Owner / Business Analyst** (Requirements, user stories) |
 
 ---
 

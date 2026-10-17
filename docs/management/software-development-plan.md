@@ -129,28 +129,29 @@ Deliverables for each phase are identified below and are delivered towards the e
 
 ### 3.1 Organizational Structure
 
-TroMate is developed by a small, flat team of **5** members. Rather than a deep hierarchy, the team uses a **lightweight Scrum** approach: a project manager coordinates a single cross-functional team that divides work into the feature areas (chat bot & NLP, OCR/computer vision, frontend/Mini App, and quality/testing). All members contribute to documentation and reporting. Task assignment and progress are tracked on the Jira board (R6).
+TroMate is developed by a small, flat team of **5** members using a **lightweight Scrum** approach. A **Scrum Master** coordinates the process, a **Product Owner** owns the requirements and backlog, a **Technical Lead** owns the architecture, a **UI/UX Designer** owns the interface, and a **QA/Tester** owns verification. All members contribute to development, documentation and reporting, and work is tracked on the Jira board (R6).
 
 ```
-                         TroMate Team (5)
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-        Project Manager   Backend/AI      Frontend/UX        Quality & Docs
-        (coordination)   (bot, NLP, OCR) (Mini App, UI)     (testing, reports)
+                    TroMate Team (5)
+                           │
+   ┌──────────┬────────────┼────────────┬───────────┐
+   │          │            │            │           │
+Scrum      Product      Technical     UI/UX        QA /
+Master     Owner /      Lead          Designer     Tester
+(Kiệt)     BA (Tôn)     (Hào)         (Nam)        (Hưng)
 ```
 
 ### 3.2 Roles and Responsibilities
 
-> **[CONFIRM]** The role allocation below is a *proposal* based on team size; confirm with members before submission.
+> The allocation below follows the team's agreed Scrum roles; the same mapping is used in `docs/management/task-assignment.md`.
 
 | Member (Name, ID) | Role | Responsibilities |
 |---|---|---|
-| Nguyễn Gia Hào (24125008) | Project Manager, Backend Developer | Plans and tracks the schedule; assigns tasks; supports development; reviews deliverables |
-| Cao Quảng Hưng (24125010) | Backend Developer, AI (NLP & OCR) | Builds the bot backend, natural-language parsing, and OCR bill/meter extraction |
-| Trịnh Võ Nam Kiệt (24125013) | Frontend Developer (Mini App) | Develops the Mini App / web UI and VietQR settlement flow |
-| Phạm Hữu Nam (24125015) | Frontend Developer, UI/UX Designer | Designs UX and screens; implements UI components |
-| Huỳnh Chí Tôn (24125020) | Tester, Documentation | Writes and runs test cases; maintains weekly reports and assignment documents |
+| Nguyễn Gia Hào (24125008) | Technical Lead | Defines the architecture, technology stack and coding standards; reviews code; supports implementation and integration; coordinates with QA on defects |
+| Cao Quảng Hưng (24125010) | QA / Tester | Plans testing and writes test cases from acceptance criteria; tests expense logging, balances, settlement and error handling; reports and retests defects |
+| Trịnh Võ Nam Kiệt (24125013) | Scrum Master / Project Lead | Organises Sprint ceremonies; maintains the Jira board and tracks progress; removes blockers; keeps plans and management documents current |
+| Phạm Hữu Nam (24125015) | UI/UX Designer | Translates requirements into user flows and wireframes; designs consistent, accessible screens and reusable components; covers loading/empty/error/success states |
+| Huỳnh Chí Tôn (24125020) | Product Owner / Business Analyst | Collects and clarifies user needs; defines and prioritises the MVP backlog; writes and reviews user stories and acceptance criteria; leads acceptance testing |
 
 *Note (per PA1 guidance): responsibilities that do not apply to this project have been removed.*
 

@@ -39,19 +39,20 @@ The library is maintained separately from the assignment submission packages. Ea
 
 | Document | Discipline | Living copy | Owner | Reviewer | Phase |
 |---|---|---|---|---|---|
-| Vision Document | Requirements | [`requirements/vision.md`](requirements/vision.md) | Phạm Hữu Nam | Huỳnh Chí Tôn | Inception |
-| Software Development Plan | Management | [`management/software-development-plan.md`](management/software-development-plan.md) | Nguyễn Gia Hào | Huỳnh Chí Tôn | Inception |
-| Task Assignment | Management | [`management/task-assignment.md`](management/task-assignment.md) | Nguyễn Gia Hào | All | Inception |
-| UI Flows & Screen Inventory | Analysis & Design | [`analysis-and-design/ui-flows.md`](analysis-and-design/ui-flows.md) | Trịnh Võ Nam Kiệt | Phạm Hữu Nam | Inception |
+| Vision Document | Requirements | [`requirements/vision.md`](requirements/vision.md) | Huỳnh Chí Tôn | Trịnh Võ Nam Kiệt | Inception |
+| Software Development Plan | Management | [`management/software-development-plan.md`](management/software-development-plan.md) | Trịnh Võ Nam Kiệt | Nguyễn Gia Hào | Inception |
+| Task Assignment | Management | [`management/task-assignment.md`](management/task-assignment.md) | Trịnh Võ Nam Kiệt | All | Inception |
+| Weekly Reports | Management | [`management/weekly-reports/`](management/weekly-reports/) | Trịnh Võ Nam Kiệt | Huỳnh Chí Tôn | Inception |
+| UI Flows & Screen Inventory | Analysis & Design | [`analysis-and-design/ui-flows.md`](analysis-and-design/ui-flows.md) | Phạm Hữu Nam | Trịnh Võ Nam Kiệt | Inception |
 | UI Prompts & Wireframes | Analysis & Design | [`analysis-and-design/ui-prompts.md`](analysis-and-design/ui-prompts.md) | Phạm Hữu Nam | Trịnh Võ Nam Kiệt | Inception |
-| Software Requirements Specification | Requirements | *planned* | Phạm Hữu Nam | Nguyễn Gia Hào | Elaboration |
-| Use-Case Model & User Stories | Requirements | *planned* | Phạm Hữu Nam | Nguyễn Gia Hào | Elaboration |
-| Software Architecture Document | Analysis & Design | *planned* | Cao Quảng Hưng | Nguyễn Gia Hào | Elaboration |
+| Software Requirements Specification | Requirements | *planned* | Huỳnh Chí Tôn | Nguyễn Gia Hào | Elaboration |
+| Use-Case Model & User Stories | Requirements | *planned* | Huỳnh Chí Tôn | Nguyễn Gia Hào | Elaboration |
+| Software Architecture Document | Analysis & Design | *planned* | Nguyễn Gia Hào | Cao Quảng Hưng | Elaboration |
 | Data Model / ERD | Analysis & Design | *planned* | Nguyễn Gia Hào | Cao Quảng Hưng | Elaboration |
-| Risk Register | Management | *planned* | Nguyễn Gia Hào | Huỳnh Chí Tôn | Elaboration |
-| Test Plan | Test | *planned* | Huỳnh Chí Tôn | Nguyễn Gia Hào | Elaboration |
-| Test Cases | Test | *planned* | Huỳnh Chí Tôn | Nguyễn Gia Hào | Elaboration |
-| Test Results | Test | *planned* | Huỳnh Chí Tôn | Nguyễn Gia Hào | Construction |
+| Risk Register | Management | *planned* | Trịnh Võ Nam Kiệt | Nguyễn Gia Hào | Elaboration |
+| Test Plan | Test | *planned* | Cao Quảng Hưng | Nguyễn Gia Hào | Elaboration |
+| Test Cases | Test | *planned* | Cao Quảng Hưng | Nguyễn Gia Hào | Elaboration |
+| Test Results | Test | *planned* | Cao Quảng Hưng | Nguyễn Gia Hào | Construction |
 
 ### Assignment Records
 

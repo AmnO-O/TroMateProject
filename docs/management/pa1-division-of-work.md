@@ -34,17 +34,17 @@ Lock a single **shared-facts sheet** that both the plan and the vision will draw
 
 | PA1 item | Together or separate | Suggested owner |
 |---|---|---|
-| **a. Project plan** — §1 Introduction | Separate (write) | Hào |
-| **a.** §2 Overview (purpose/scope/objectives) | *content together*, write-up separate | Hào |
-| **a.** §3 Organization (roles) | *roles together*, write-up separate | Hào |
-| **a.** §4.2 Plan (phases, builds, schedule) | *schedule together*, write-up separate | Hào |
-| **a.** §4.3 Monitoring (4.3.1, 4.3.3) | Separate | Hào + Tôn |
-| **b. Vision** — problem / users / features | *content together*, write-up separate | Nam |
-| **b. Vision** — NFRs & diagrams | Separate (discuss NFRs) | Nam |
+| **a. Project plan** — §1 Introduction | Separate (write) | Kiệt |
+| **a.** §2 Overview (purpose/scope/objectives) | *content together*, write-up separate | Kiệt |
+| **a.** §3 Organization (roles) | *roles together*, write-up separate | Kiệt |
+| **a.** §4.2 Plan (phases, builds, schedule) | *schedule together*, write-up separate | Kiệt |
+| **a.** §4.3 Monitoring (4.3.1, 4.3.3) | Separate | Kiệt + Tôn |
+| **b. Vision** — problem / users / features | *content together*, write-up separate | Tôn |
+| **b. Vision** — NFRs & diagrams | Separate (discuss NFRs) | Tôn |
 | **c. UI** — flow + screen selection | Together | All |
-| **c. UI** — the 3–6 sketches | Separate | Nam Kiệt, Nam |
-| **d. Weekly reports** (2 reports) | Each member reports **own** work; one compiles | Tôn (compiler) |
-| **e. Execution & tracking** — Jira/GitHub setup | Separate | Hào |
+| **c. UI** — the 3–6 sketches | Separate | Nam, Kiệt |
+| **d. Weekly reports** (2 reports) | Each member reports **own** work; one compiles | Kiệt (compiler) |
+| **e. Execution & tracking** — Jira/GitHub setup | Separate | Kiệt |
 | **e. Execution & tracking** — actually using the board | Everyone updates **own** tasks | All |
 
 ---
