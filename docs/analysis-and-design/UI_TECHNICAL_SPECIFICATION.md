@@ -89,7 +89,23 @@ flowchart TD
     G --> H["Navigate to Dashboard<br/>(Empty State)"]
 ```
 
-### 3. Screen Specifications: Room Dashboard — Empty State ([SCRUM-69](https://apcs24-cs300.atlassian.net/browse/SCRUM-69))
+### 3. Screen Specifications
+
+#### Screen 0.1: Telegram Bot /start Command & Mini App Launch ([SCRUM-19](https://apcs24-cs300.atlassian.net/browse/SCRUM-19))
+* **Purpose:** Initial onboarding and entry point from Telegram chat to the TroMate Mini App.
+
+<p align="center">
+  <img src="./ui/flow0/bot-start.png" width="500" alt="Telegram Bot Start & Mini App Launch" />
+</p>
+
+* **UI Elements:**
+  * User command: `/start` (or `/setup`).
+  * Bot response bubble with personalized greeting (`Xin chào Kiet!`) and ready status notice.
+  * Inline Action Buttons:
+    * Primary CTA: `[ 📱 Mở Dashboard Mini App ]` (launches Telegram Mini App with room context).
+    * Secondary Link: `[ 🌐 Xem trên trình duyệt ]` (external web fallback).
+
+#### Screen 0.2: Room Dashboard — Empty State ([SCRUM-69](https://apcs24-cs300.atlassian.net/browse/SCRUM-69))
 * **Purpose:** Confirms room creation and prompts the first expense entry upon successful onboarding.
 
 <p align="center">
