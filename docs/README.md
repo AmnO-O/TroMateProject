@@ -45,6 +45,7 @@ The library is maintained separately from the assignment submission packages. Ea
 | Weekly Reports | Management | [`management/weekly-reports/`](management/weekly-reports/) | Trịnh Võ Nam Kiệt | Huỳnh Chí Tôn | Inception |
 | UI Flows & Screen Inventory | Analysis & Design | [`analysis-and-design/ui-flows.md`](analysis-and-design/ui-flows.md) | Phạm Hữu Nam | Trịnh Võ Nam Kiệt | Inception |
 | UI Prompts & Wireframes | Analysis & Design | [`analysis-and-design/ui-prompts.md`](analysis-and-design/ui-prompts.md) | Phạm Hữu Nam | Trịnh Võ Nam Kiệt | Inception |
+| Telegram Bot Library Evaluation | Analysis & Design | [`analysis-and-design/telegram-bot-library-evaluation.md`](analysis-and-design/telegram-bot-library-evaluation.md) | Nguyễn Gia Hào | Cao Quảng Hưng | Elaboration |
 | Software Requirements Specification | Requirements | *planned* | Huỳnh Chí Tôn | Nguyễn Gia Hào | Elaboration |
 | Use-Case Model & User Stories | Requirements | *planned* | Huỳnh Chí Tôn | Nguyễn Gia Hào | Elaboration |
 | Software Architecture Document | Analysis & Design | *planned* | Nguyễn Gia Hào | Cao Quảng Hưng | Elaboration |
