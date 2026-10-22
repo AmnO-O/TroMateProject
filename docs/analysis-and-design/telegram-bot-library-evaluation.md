@@ -4,8 +4,9 @@
 **Task:** Initialize the Mini App backend and select a Telegram bot library
 **Owner:** Nguyễn Gia Hào
 **Reviewer:** Cao Quảng Hưng
-**Branch:** `feat/init-mini-app-backend`
-**Status:** **Draft** — implementation and local verification complete; live Telegram E2E pending
+**Branch:** `feat/init-mini-app-backend`  
+**Pull request:** [#5](https://github.com/AmnO-O/TroMateProject/pull/5) (draft; live E2E pending)  
+**Status:** **Draft** — implementation and local verification complete; live Telegram E2E pending  
 **Last updated:** 2026-10-22
 
 > **Decision status:** aiogram 3.x is the provisional recommendation. The
