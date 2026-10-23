@@ -523,7 +523,8 @@ The exact runtime procedure is in Section 11.
 
 Verified against Telegram’s Bot Features and Bot FAQ:
 
-- Group privacy mode is **ON by default** for every bot added to a group.
+- Group privacy mode is **ON by default** for bots added as regular group
+  members; bots added as administrators always receive all messages.
 - With privacy mode ON, the bot receives only:
   - commands explicitly addressed to it, for example `/balance@this_bot`;
   - general commands such as `/start` if the bot was the last bot to send a
