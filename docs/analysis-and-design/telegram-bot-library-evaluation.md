@@ -7,7 +7,7 @@
 **Branch:** `feat/init-mini-app-backend`  
 **Pull request:** [#5](https://github.com/AmnO-O/TroMateProject/pull/5) (draft; live E2E pending)  
 **Status:** **Draft** — implementation and local verification complete; live Telegram E2E pending  
-**Last updated:** 2026-10-22
+**Last updated:** 2026-10-23
 
 > **Decision status:** aiogram 3.x is the provisional recommendation. The
 > recommendation is based on code integration, library documentation, and local
@@ -208,7 +208,7 @@ In another terminal:
 
 ```powershell
 cloudflared tunnel --url http://127.0.0.1:8000
-python scripts/manage_webhook.py set --drop-pending
+python scripts/manage_webhook.py set --drop-pending --max-connections 10
 python scripts/manage_webhook.py info
 ```
 
@@ -357,7 +357,7 @@ cd src/backend
 Result:
 
 ```text
-41 passed in 6.49s
+41 passed in 6.30s
 All checks passed!
 ```
 
@@ -449,7 +449,7 @@ In a second terminal:
 
 ```powershell
 cloudflared tunnel --url http://127.0.0.1:8000
-python scripts/manage_webhook.py set --drop-pending
+python scripts/manage_webhook.py set --drop-pending --max-connections 10
 python scripts/manage_webhook.py info
 ```
 
@@ -498,30 +498,68 @@ library limitation or an application issue.
 
 ### 8.1 Webhook
 
-| Constraint | Implication for TroMate |
-|---|---|
-| Webhooks require HTTPS | Local development needs a tunnel or a TLS-terminating proxy |
-| Supported public ports are 443, 80, 88, and 8443 | Cloudflare/ngrok terminate TLS on 443 |
-| One webhook per bot | `setWebhook` replaces the previous URL |
-| `getUpdates` and webhooks are mutually exclusive | Do not run polling and webhook delivery for the same bot |
-| `secret_token` is sent as `X-Telegram-Bot-Api-Secret-Token` | The FastAPI route verifies it before parsing |
-| `max_connections` controls webhook concurrency | The spike uses 10; production should size it against the worker/queue capacity |
-| `drop_pending_updates` discards queued updates | Use while switching libraries or resetting test state |
-| Slow webhook responses can trigger retries | Handlers are queued/spawned; the route returns quickly |
+Verified against the official `setWebhook` and `getWebhookInfo` method pages and
+the Telegram webhook guide. These rules were re-checked on **2026-10-23**; the
+official pages and the three library documentation links returned HTTP 200.
+
+| Constraint | Verified rule | Implication for TroMate |
+|---|---|---|
+| Transport | HTTPS only; TLS 1.2+; IPv4; ports **443, 80, 88, and 8443** | Local development needs a TLS tunnel or proxy; Cloudflare/ngrok terminate on 443 |
+| Delivery | Telegram sends an HTTPS `POST` containing a JSON `Update`; any `2XY` response means success | Return `200` quickly; do not do handler work before the response |
+| Failed delivery | Non-`2XY` responses are retried and Telegram gives up after a reasonable number of attempts | A failing handler can cause duplicate delivery; make handlers idempotent |
+| Certificate | Redirects are not supported; the certificate CN/SAN must match the domain; wildcard certificates may not work | Use a stable hostname and a valid certificate chain |
+| Endpoint | One webhook per bot; `setWebhook` replaces the previous URL | Switching libraries or tunnels replaces, rather than adds, delivery |
+| Polling | `getUpdates` and a webhook are mutually exclusive | Never run polling and webhook delivery for the same token |
+| Authentication | `secret_token` is 1–256 characters from `A-Z`, `a-z`, `0-9`, `_`, `-`; it is sent as `X-Telegram-Bot-Api-Secret-Token` | The app compares the header with `secrets.compare_digest`; the app’s own minimum is 16 characters |
+| Concurrency | `max_connections` is 1–100, default **40** | The spike uses 10; size production against worker/queue capacity |
+| Pending updates | Telegram stores undelivered updates for at most **24 hours**; `pending_update_count` exposes the backlog | Use `drop_pending_updates` while resetting or switching libraries |
+| Update types | `allowed_updates` defaults to all types except `chat_member`, `message_reaction`, and `message_reaction_count` | Set `allowed_updates` explicitly if those events are needed later |
+
+The API-level checks are `getWebhookInfo` for `url`, `pending_update_count`,
+`last_error_date`, `last_error_message`, `max_connections`, and `allowed_updates`.
+The exact runtime procedure is in Section 11.
 
 ### 8.2 Group privacy and permissions
 
-- Group privacy mode is **ON by default**.
-- With privacy on, the bot receives commands addressed to it and other limited
-  updates; it does not receive all ordinary group messages.
-- To read ordinary messages, disable privacy mode in BotFather and re-add the bot
-  to the group.
-- Making the bot an admin is another way to receive more group content, but it
-  grants broader permissions and should be a deliberate product decision.
-- The spike only needs commands, callback queries, and Mini App launches, so it
-  does not require full message access.
-- Group commands should be written as `/command@<bot>` in documentation and
-  tests to avoid ambiguity.
+Verified against Telegram’s Bot Features and Bot FAQ:
+
+- Group privacy mode is **ON by default** for every bot added to a group.
+- With privacy mode ON, the bot receives only:
+  - commands explicitly addressed to it, for example `/balance@this_bot`;
+  - general commands such as `/start` if the bot was the last bot to send a
+    message to the group;
+  - inline messages sent via the bot;
+  - replies to messages implicitly or explicitly meant for the bot.
+- **Regardless of privacy mode**, all bots receive all service messages, all
+  private-chat messages, and messages from channels where the bot is a member.
+- **Bot admins** and bots with privacy mode **disabled** receive all messages
+  except messages sent by other bots. This is broader than TroMate needs for the
+  spike.
+- To disable privacy mode, use BotFather’s `/setprivacy` flow and then remove and
+  re-add the bot to the group. The re-add is required for the setting to take
+  effect.
+- The spike only needs commands, callback queries, and Mini App launches, so
+  privacy mode ON is sufficient. It does not need to read ordinary group chatter.
+- Group commands should be documented and tested as `/command@<bot>` to avoid
+  ambiguity when several bots are present.
+
+Permission checks are data, not assumptions:
+
+1. Call `getMe` to obtain the bot’s numeric user ID.
+2. Call `getChatMember` with that ID. `status` is `creator`, `member`,
+   `administrator`, `restricted`, `left`, or `banned`.
+3. If the bot is an administrator, inspect the boolean rights on
+   `ChatMemberAdministrator`, including `can_manage_chat`,
+   `can_delete_messages`, `can_pin_messages`, `can_restrict_members`,
+   `can_invite_users`, and `can_manage_topics`.
+4. `getChatAdministrators` lists administrators; pass `return_bots=true` to
+   include other administrator bots.
+5. Exercise a privileged operation such as pinning or deleting a message and
+   record the resulting API error when the right is absent.
+
+The app does not need administrator rights for the current `/start`, `/balance`,
+`/app`, callback, and Mini App flows. It will need explicit rights before adding
+moderation or message-management features.
 
 ### 8.3 Mini App launch constraints
 
@@ -550,15 +588,21 @@ cache-busting query string such as `?v=2` to the BotFather Main Mini App URL.
 
 ### 8.5 Rate limits
 
-Telegram's Bot API FAQ gives approximate limits:
+Telegram's Bot API FAQ gives these free-tier limits:
 
-- about 1 message per second in a single chat;
-- about 20 messages per minute to the same group;
-- about 30 messages per second globally.
+- avoid sending more than **1 message per second** in a single chat; short bursts
+  may be allowed, but sustained traffic eventually returns `429`;
+- no more than **20 messages per minute** to the same group;
+- no more than about **30 messages per second** globally for bulk notifications.
 
-A 429 response includes `retry_after`. The spike does not add custom retry/backoff
-logic; the libraries may expose some retry behavior, but production must handle
-429 explicitly and avoid bursty notification loops.
+A `429` response includes `retry_after`. The spike does not add custom
+retry/backoff logic; the libraries may expose some retry behavior, but production
+must handle `429` explicitly and avoid bursty notification loops. Telegram’s paid
+broadcast option can raise the global limit, but it is not relevant to this MVP.
+
+The limits are verified by the official FAQ and, optionally, a controlled send
+loop that records the first `429` and its `retry_after` without spamming users.
+Section 11 describes the safe procedure.
 
 ### 8.6 Tunnel and hosting
 
@@ -621,7 +665,29 @@ this architecture, however:
 It remains a reasonable fallback for a very small bot with a team already
 comfortable with it.
 
-### 9.5 Decision gate
+### 9.5 How the comparison was checked
+
+The scores are a project decision aid, not a benchmark. They were checked against
+reproducible evidence:
+
+| Criterion | Evidence used | How to reproduce |
+|---|---|---|
+| Async/FastAPI fit | The adapter’s update handoff and lifecycle; PTB uses `application.update_queue.put`, aiogram uses `Dispatcher.feed_update`, telebot uses `process_new_updates` | Read `app/bots/*_bot.py`; run the `/slow` webhook check and confirm the route returns before the handler finishes |
+| Setup/integration effort | Required lifecycle calls, webhook-mode configuration, and adapter size | Run each `BOT_LIBRARY` value through the same `uvicorn` + webhook sequence; compare the setup calls, not just line count |
+| Docs/examples | Official webhook guidance and examples for the installed version | Check the links in Section 12; follow the webhook setup without consulting this report |
+| Features | Handler registration, typed updates, callback queries, Mini App keyboard types, middleware/FSM availability | Inspect the adapter code and the library’s API reference; exercise the shared command/callback flows |
+| Ecosystem/maintenance | Release activity, current docs, and breadth of examples | Check the project repository/release page for the installed version before accepting the choice |
+
+Adapter sizes at the time of writing are **215** lines for PTB, **189** for
+aiogram, and **214** for telebot. Line count alone is not a quality metric; it
+shows that the integration difference is mostly lifecycle and update-handoff
+design, not raw code volume.
+
+The `/slow` check is also the practical test for the claim that the FastAPI route
+does not block on handler work. It is a development-only command and is not part
+of the product command set.
+
+### 9.6 Decision gate
 
 The recommendation is **provisional** until:
 
@@ -653,7 +719,201 @@ resort.
 
 ---
 
-## 11. References
+## 11. How to verify this evaluation
+
+This section is the review procedure. Section 7 is the live Telegram end-to-end
+test; this section explains how to check the platform limits, the library scores,
+and the local results without trusting this report.
+
+### 11.1 Check the official rules first
+
+Read the primary source for each claim and compare it with Sections 8 and 9:
+
+| Claim | Official source | What to look for |
+|---|---|---|
+| Webhook transport and retries | [`setWebhook`](https://core.telegram.org/bots/api#setwebhook) | HTTPS URL; `2XY` success; non-`2XY` retries; `max_connections` 1–100 default 40; `secret_token` 1–256; one webhook |
+| Webhook status | [`getWebhookInfo`](https://core.telegram.org/bots/api#getwebhookinfo) | `url`, `pending_update_count`, `last_error_message`, `max_connections`, `allowed_updates` |
+| Webhook ports and TLS | [Webhook guide](https://core.telegram.org/bots/webhooks) | Ports 443/80/88/8443; TLS 1.2+; IPv4; certificate CN/SAN; no redirects |
+| Pending updates | [Getting updates](https://core.telegram.org/bots/api#getting-updates) | Updates are not kept longer than **24 hours**; polling and webhooks are mutually exclusive |
+| Privacy mode | [Bot features: Privacy Mode](https://core.telegram.org/bots/features#privacy-mode) | Default ON; exact list of messages received; admins/privacy-off receive all; re-add after changing |
+| Privacy FAQ | [Bot FAQ: What messages will my bot get?](https://core.telegram.org/bots/faq#what-messages-will-my-bot-get) | Same rules, including “bots cannot see messages from other bots” |
+| Permissions | [`getChatMember`](https://core.telegram.org/bots/api#getchatmember), [`ChatMemberAdministrator`](https://core.telegram.org/bots/api#chatmemberadministrator) | `status`; `can_delete_messages`, `can_pin_messages`, `can_restrict_members`, `can_manage_chat`, `can_invite_users`, `can_manage_topics` |
+| Admin list | [`getChatAdministrators`](https://core.telegram.org/bots/api#getchatadministrators) | `return_bots=true` includes administrator bots |
+| Rate limits | [Bot FAQ: broadcasting limits](https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this) | 1/sec per chat; 20/min per group; about 30/sec globally; `429` includes `retry_after` |
+| Library webhook guidance | PTB [custom webhook example](https://docs.python-telegram-bot.org/en/stable/examples.customwebhookbot.html), aiogram [webhook guide](https://docs.aiogram.dev/en/latest/dispatcher/webhook.html), [pyTelegramBotAPI docs](https://pytba.readthedocs.io/) | Whether the documented webhook path matches our FastAPI integration |
+
+The report’s numbers should be treated as unverified if they contradict these
+pages. Telegram changes limits; record the date checked.
+
+### 11.2 Check Telegram limits with a real test bot
+
+Prerequisites: a real test-bot token, a public HTTPS tunnel, a Telegram client,
+and a test group. Put the token and webhook secret in `src/backend/.env`; never
+commit that file.
+
+Start the app and tunnel:
+
+```powershell
+cd src/backend
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+In a second terminal:
+
+```powershell
+cloudflared tunnel --url http://127.0.0.1:8000
+python scripts/manage_webhook.py set --drop-pending --max-connections 10
+python scripts/manage_webhook.py info
+```
+
+**Webhook checks**
+
+1. Confirm `getWebhookInfo.url` is the current HTTPS tunnel URL and
+   `pending_update_count` is `0`.
+2. Call `getUpdates` directly while the webhook is set:
+
+   ```powershell
+   $token = $env:TELEGRAM_BOT_TOKEN
+   Invoke-RestMethod "https://api.telegram.org/bot$token/getUpdates"
+   ```
+
+   Expected: a `409 Conflict` (or an error saying a webhook is active). This
+   proves the two delivery modes are mutually exclusive.
+3. Send a request with the wrong secret directly to the webhook; expect `403`.
+   Let Telegram deliver a real update with the configured secret; expect `200`.
+   Inspect `getWebhookInfo.last_error_message` after forcing a non-2XX response.
+4. Set `max_connections=10`; inspect `getWebhookInfo.max_connections` to confirm
+   the configured value. This is a status check, not a load test.
+5. Use `--drop-pending` once, then confirm `pending_update_count` returns to `0`.
+   Do not wait 24 hours to test the retention limit; cite the official docs for it.
+
+**Group privacy checks**
+
+1. Create a test group and add the bot as a normal member. Privacy mode is ON by
+   default.
+2. Send a plain text message that is not a command. Confirm it does **not**
+   produce a webhook update/handler log.
+3. Send `/start@<bot>`; confirm the update is delivered and the bot responds.
+4. Send `/start` immediately after the bot has sent a message to the group;
+   the general-command exception should deliver it.
+5. In BotFather, use `/setprivacy`, select the bot, and disable privacy mode.
+   Remove the bot from the group and add it again. Send a plain text message;
+   confirm it is now delivered.
+6. Promote the bot to administrator and repeat the plain-message test; admins
+   receive all messages (except messages from other bots). Do this only in the
+   test group and remove admin rights afterwards if they are not needed.
+
+**Permission checks**
+
+1. Get the bot’s numeric ID:
+
+   ```powershell
+   $me = Invoke-RestMethod "https://api.telegram.org/bot$token/getMe"
+   $me.result.id
+   ```
+
+2. Query the bot’s membership in the test group:
+
+   ```powershell
+   Invoke-RestMethod "https://api.telegram.org/bot$token/getChatMember?chat_id=<CHAT_ID>&user_id=<BOT_ID>"
+   ```
+
+3. Record `status` and, when it is `administrator`, the relevant `can_*` fields.
+4. Try a privileged action such as pinning a test message. If the right is
+   absent, record the API error; do not assume that being a member is enough.
+5. Call `getChatAdministrators` with `return_bots=true` and compare the result
+   with step 2.
+
+**Rate-limit checks**
+
+The FAQ is authoritative. A runtime test is optional and should use only a
+private test chat with a very small number of messages. Record the first `429`
+and its `retry_after`; stop immediately. Do not run a burst test in a real group
+or against real users.
+
+### 11.3 Check the library comparison
+
+The matrix is a judgment, so verify the evidence behind it:
+
+```powershell
+cd src/backend
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m ruff check .
+```
+
+Expected current result:
+
+```text
+41 passed
+All checks passed!
+```
+
+Then run the same webhook sequence with each value and inspect the handoff:
+
+```dotenv
+BOT_LIBRARY=ptb
+# restart, then repeat with aiogram and telebot
+```
+
+| What to check | PTB | aiogram | telebot |
+|---|---|---|---|
+| Webhook-mode setup | `Application.builder().updater(None)` then `initialize()`/`start()` | `Bot` + `Dispatcher`; no polling updater | `AsyncTeleBot`; no polling loop |
+| Update handoff | `Update.de_json` → `application.update_queue.put` | `Update.model_validate` → `Dispatcher.feed_update` | `Update.de_json(json.dumps(...))` → `process_new_updates` |
+| Handler registration | `CommandHandler` / `CallbackQueryHandler` | routers, filters, decorators | message/callback decorators |
+| Group mention behavior | `CommandHandler` validates the bot identity | filter-based; verify with a real group | filter strips the mention; app-level guard required |
+| Async behavior | application lifecycle plus queue | async-native dispatcher | async wrapper over a synchronous-first core |
+
+For the async/FastAPI claim, open the webhook route and confirm it returns
+`{"ok": true}` without awaiting long handler work. Then invoke the dev-only
+`/slow` command and observe that the webhook request is acknowledged while the
+handler is still sleeping. This is the concrete test for “does not block the
+FastAPI event loop.”
+
+For documentation, follow the official webhook guide for each library without
+using this report. If the guide cannot get a webhook update into a handler on the
+installed version, lower the documentation score. Record the exact version and
+the page used.
+
+### 11.4 Check the local results
+
+The automated suite uses a fake token and a test secret; it does **not** contact
+Telegram:
+
+```powershell
+cd src/backend
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m ruff check .
+```
+
+The suite covers `initData` validation, the Mini App API, webhook security,
+telebot decoding/mention handling, and synthetic `/start` dispatch for all three
+adapters. The local Uvicorn HTTP smoke evidence is recorded in Appendix A.1.
+
+### 11.5 Record evidence and decide
+
+For each library, record in Section 7.4:
+
+- date, tester, library/version, bot username, Telegram client/platform;
+- tunnel host (the public URL is not a secret, but redact if policy requires it);
+- `getWebhookInfo` output with token/secret removed;
+- privacy-mode state and whether the bot was a member or admin;
+- `getChatMember` status and relevant `can_*` rights;
+- the result of `/start`, `/balance`, Mini App launch, group launch, wrong
+  secret, `/slow`, and callback refresh;
+- screenshots or log excerpts for failures;
+- any 429 observation, including `retry_after`.
+
+Do not commit the bot token, raw `initData`, or the webhook secret.
+
+The recommendation remains provisional until all three live runs are recorded,
+the team confirms ownership/hosting/session strategy, and the report is reviewed.
+If aiogram passes, keep it and remove the other adapters only after acceptance.
+If it fails, evaluate PTB as the fallback; telebot is the last resort.
+
+---
+
+## 12. References
 
 Telegram official documentation:
 
@@ -663,8 +923,24 @@ Telegram official documentation:
   <https://core.telegram.org/bots/webapps#direct-link-mini-apps>
 - Bot API `setWebhook`:
   <https://core.telegram.org/bots/api#setwebhook>
+- Bot API `getWebhookInfo`:
+  <https://core.telegram.org/bots/api#getwebhookinfo>
+- Webhook guide (ports, TLS, certificates, IPv4):
+  <https://core.telegram.org/bots/webhooks>
+- Getting updates and 24-hour retention:
+  <https://core.telegram.org/bots/api#getting-updates>
 - Bot features and privacy mode:
   <https://core.telegram.org/bots/features#privacy-mode>
+- Bot FAQ: messages received, webhook troubleshooting, rate limits:
+  <https://core.telegram.org/bots/faq#what-messages-will-my-bot-get>
+- `getChatMember`:
+  <https://core.telegram.org/bots/api#getchatmember>
+- `getChatAdministrators`:
+  <https://core.telegram.org/bots/api#getchatadministrators>
+- `ChatMemberAdministrator` rights:
+  <https://core.telegram.org/bots/api#chatmemberadministrator>
+- `WebhookInfo`:
+  <https://core.telegram.org/bots/api#webhookinfo>
 - Bot API FAQ: rate limits:
   <https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this>
 
@@ -697,7 +973,7 @@ Project artifacts:
 ```text
 $ cd src/backend
 $ .\.venv\Scripts\python.exe -m pytest -q
-41 passed in 6.49s
+41 passed in 6.30s
 
 $ .\.venv\Scripts\python.exe -m ruff check .
 All checks passed!
@@ -740,5 +1016,5 @@ balance without header 401 MISSING_INIT_DATA
 
 ---
 
-*This report is a living document. Update Sections 6, 7, and 9 after the live E2E
-run and before the spike is marked accepted.*
+*This report is a living document. Update Sections 6, 7, 9, and 11 after the live
+E2E run and before the spike is marked accepted.*
