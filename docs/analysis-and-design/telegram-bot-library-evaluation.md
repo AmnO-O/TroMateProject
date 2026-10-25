@@ -4,10 +4,10 @@
 **Task:** Initialize the Mini App backend and select a Telegram bot library
 **Owner:** Nguyễn Gia Hào
 **Reviewer:** Cao Quảng Hưng
-**Branch:** `feat/init-mini-app-backend`  
-**Pull request:** [#5](https://github.com/AmnO-O/TroMateProject/pull/5) (draft; live E2E pending)  
-**Status:** **Draft** — implementation and local verification complete; live Telegram E2E pending  
-**Last updated:** 2026-10-23
+**Branch:** `feat/init-mini-app-backend`
+**Pull request:** [#5](https://github.com/AmnO-O/TroMateProject/pull/5) (draft; Telegram-client E2E pending)
+**Status:** **Draft** — implementation, local tests, and live infrastructure checks complete; Telegram-client E2E and review pending
+**Last updated:** 2026-10-25
 
 > **Decision status:** aiogram 3.x is the provisional recommendation. The
 > recommendation is based on code integration, library documentation, and local
@@ -51,8 +51,9 @@ The FastAPI layer includes:
 | Lint | `ruff check .` — **All checks passed** |
 | Local HTTP smoke (real Uvicorn TCP server, fake bot engine) | Health, Mini App page, webhook secret rejection, webhook acceptance, valid session, tampered session, balance, and missing-header balance all behaved as expected |
 | Signed test-data generator | Valid generated `initData` accepted; `--tamper` produced `INVALID_SIGNATURE` |
+| Live infrastructure smoke (real PTB bot + Cloudflare Quick Tunnel, 25/10/2026) | Public `/health` and `/miniapp` returned 200; bot commands and Mini App menu button were configured; webhook had no pending updates or last error; valid secret returned 200; wrong secret returned 403; signed valid `initData` returned 200; tampered data returned 401 |
 | Synthetic update dispatch | All three adapters handled `/start` and produced an inline keyboard |
-| Live Telegram E2E | **Not executed** — no real bot token, public HTTPS tunnel, or Telegram client was available in the implementation environment |
+| Telegram-client E2E | **Pending** — `/start`, `/balance`, real Mini App launch, real `initData`, and group privacy still require a Telegram account |
 
 ### Provisional recommendation
 
@@ -401,20 +402,45 @@ test transport.
 | aiogram | Handled | `InlineKeyboardMarkup` | Same helper/keyboard construction |
 | telebot | Handled | `InlineKeyboardMarkup` | Same helper/keyboard construction |
 
-### 6.4 What was not verified
+### 6.4 Live infrastructure checks (25/10/2026)
 
-The following require a real bot token, a public HTTPS tunnel, and a Telegram
-client, none of which were available in the implementation environment:
+A real test bot (`@tromate_dev_bot`) and a Cloudflare Quick Tunnel became
+available after the initial implementation. The PTB runtime was checked through
+the public URL:
 
-- Actual `setWebhook`/`getWebhookInfo` against Telegram.
-- `getMe`, command registration, and menu-button registration against Telegram.
-- `/start` from a real Telegram client.
-- Opening the Mini App from the inline `web_app` button.
-- A real `initData` string from Telegram.
-- Group direct-link launch and `chat_type`/`chat_instance`/`start_param` values.
-- Group privacy behavior with a real bot.
+| Check | Result |
+|---|---|
+| Local and public `/health` | `200`; `library=ptb`; `bot_username=tromate_dev_bot` |
+| Public `/miniapp` | `200`; page contains “TroMate Mini App” and the Telegram Web App script |
+| `getMe` | `ok=true`; username `tromate_dev_bot` |
+| `getMyCommands` | `ok=true`; 4 commands registered |
+| `getChatMenuButton` | `web_app`; URL matches `<PUBLIC_BASE_URL>/miniapp` |
+| `getWebhookInfo` | URL matches the tunnel; `pending_update_count=0`; no `last_error_message`; `max_connections=10` |
+| Webhook with the configured secret | `200`; `{"ok":true}` |
+| Webhook with a wrong secret | `403`; `Invalid webhook secret` |
+| Session API with signed valid `initData` | `200`; user and launch context returned |
+| Balance API with signed valid `initData` | `200`; mock balances returned |
+| Session API with tampered `initData` | `401`; `INVALID_SIGNATURE` |
+
+The authenticated webhook check posted a synthetic `{"update_id": ...}` payload
+to the public tunnel. It proves TLS, tunnel routing, secret validation, and the
+FastAPI route, but it is **not** proof that Telegram delivered a real update.
+
+### 6.5 What remains unverified
+
+These checks still require an actual Telegram client and a test group:
+
+- `/start` and `/balance` from a real Telegram account.
+- Opening the Mini App from the inline `web_app` button or menu button.
+- A real `Telegram.WebApp.initData` value from Telegram.
+- Group direct-link launch and the real `chat_type`/`chat_instance`/`start_param`
+  values.
+- Group privacy behavior as a regular member, with privacy disabled, and as an
+  administrator.
 - Callback-query edit behavior in Telegram clients.
 - Telegram-side retry behavior and 429 handling.
+- Live runs for the aiogram and telebot adapters; only PTB has been exercised
+  against the current tunnel.
 
 These are **pending verification**, not failures. The code paths and API
 signatures were checked locally, and the webhook/API behavior was verified with
@@ -481,9 +507,9 @@ client, bot username, screenshot/log reference).
 
 | Library | Private E2E | Mini App E2E | Group E2E | Notes |
 |---|---|---|---|---|
-| PTB | Pending | Pending | Pending | |
-| aiogram | Pending | Pending | Pending | |
-| telebot | Pending | Pending | Pending | |
+| PTB | Pending | Pending | Pending | Live infrastructure verified 25/10/2026; Telegram-client checks still pending |
+| aiogram | Pending | Pending | Pending | Not yet run against the live tunnel |
+| telebot | Pending | Pending | Pending | Not yet run against the live tunnel |
 
 ### 7.5 Acceptance rule
 
@@ -752,6 +778,10 @@ Prerequisites: a real test-bot token, a public HTTPS tunnel, a Telegram client,
 and a test group. Put the token and webhook secret in `src/backend/.env`; never
 commit that file.
 
+On 25/10/2026 the PTB runtime, public tunnel, webhook, command menu, Mini App menu
+button, and signed `initData` checks were already live. The client-side checks
+below remain the acceptance gate.
+
 Start the app and tunnel:
 
 ```powershell
@@ -993,6 +1023,26 @@ balance 200 3
 balance without header 401 MISSING_INIT_DATA
 ```
 
+Live infrastructure smoke (real PTB bot + Cloudflare Quick Tunnel, 25/10/2026):
+
+```text
+getMe                  ok=true username=tromate_dev_bot
+getMyCommands          ok=true count=4
+getChatMenuButton      ok=true type=web_app url=<PUBLIC_BASE_URL>/miniapp
+getWebhookInfo         ok=true pending=0 last_error=None max_connections=10
+public /health        200 application/json
+public /miniapp       200 text/html; charset=utf-8; title/script found
+webhook valid secret  200 {"ok":true}   # synthetic update_id only
+webhook wrong secret  403 {"detail":"Invalid webhook secret"}
+session valid         200 user=123456789
+balance valid         200 mock balances
+session tampered      401 INVALID_SIGNATURE
+```
+
+The webhook line above is an authenticated synthetic POST through the public
+tunnel, not a Telegram-delivered update. The real Telegram-client evidence is
+still pending.
+
 ### A.2 Repository changes in this spike
 
 - `src/backend/pyproject.toml`
@@ -1002,18 +1052,19 @@ balance without header 401 MISSING_INIT_DATA
 - `src/backend/scripts/manage_webhook.py`
 - `src/backend/scripts/make_test_init_data.py`
 - `src/backend/tests/**`
+- `src/TECHNICAL_SPIKES.md`
 - `.gitignore` (allow `.env.example`)
 - Root `README.md` and `docs/README.md` document indexes
 - `plan.md`
 
 ### A.3 Pending evidence
 
-- Screenshots/logs from each library's live Telegram run.
-- `getWebhookInfo` output for each library (redact any sensitive URL if needed).
+- Screenshots/logs from each library's real Telegram-client run.
 - Real Mini App `initData` validation result (do not commit raw `initData`).
-- Group launch context values.
+- Group launch context values and privacy/permission results.
 - Callback-query edit result.
 - 429/retry observation if a safe test is possible.
+- Live run for aiogram and telebot against the current tunnel.
 
 ---
 
