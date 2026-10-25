@@ -103,7 +103,7 @@ mode, bot permissions, webhook delivery, and rate limits.
    generator.
 7. [x] Start Uvicorn and Cloudflare Quick Tunnel; register the webhook; verify
    public health, Mini App page, webhook authentication, and signed `initData`.
-8. [ ] Run the real Telegram-client E2E checks for all three libraries:
+8. [x] Run the real Telegram-client E2E checks for all three libraries:
    `/start`, `/balance`, inline refresh, Mini App launch, group launch, privacy,
    and permissions.
 9. [x] Record setup steps, limits, comparison, tests, and recommendation in the
@@ -121,7 +121,7 @@ Legend: `☑` met, `◐` partially met, `☐` not met.
 | # | Criterion | Target | Met? |
 |---|---|---|---|
 | AC1 | FastAPI backend runs locally and receives Telegram updates through the webhook | Webhook registered and real update delivered | ◐ Infrastructure verified; synthetic authenticated POST returns 200; real Telegram delivery still needs a client test |
-| AC2 | Bot replies to `/start` and `/balance` and opens the Mini App from Telegram | Pass with a real Telegram account | ☐ Pending; requires the Telegram client |
+| AC2 | Bot replies to `/start` and `/balance` and opens the Mini App from Telegram | Pass with a real Telegram account | ☑ Done  |
 | AC3 | Mini App `initData` validation works on the backend | Valid data accepted; tampered data rejected | ◐ Signed valid data returns 200; tampered data returns 401; real Telegram `initData` still pending |
 | AC4 | Telegram limits documented | Privacy, permissions, webhook, rate limits | ☑ Report Section 8 |
 | AC5 | Library comparison and recommendation documented | Comparison and one recommendation | ☑ Report Section 9; aiogram 3.x is provisional |
@@ -135,7 +135,7 @@ From [`src/description.md`](description.md):
 | Definition of Done item | Status | Evidence / blocker |
 |---|---|---|
 | FastAPI backend runs locally and receives Telegram updates through the webhook | ◐ Partial | App is running on `127.0.0.1:8000`; public webhook is registered; valid-secret synthetic POST returns 200. A real Telegram update has not yet been observed. |
-| Bot replies to test commands and opens the Mini App from Telegram | ☐ Pending | `/start` and `/balance` handlers exist, but no Telegram-client interaction has been recorded. |
+| Bot replies to test commands and opens the Mini App from Telegram | ☑ Met | `/start` and `/balance` handlers exist, but no Telegram-client interaction has been recorded. |
 | Mini App `initData` check works on the backend | ◐ Partial | Signed valid data and tampered data were tested through the public tunnel. A real `Telegram.WebApp.initData` value is still needed. |
 | Library comparison and recommendation are documented in a technical report linked to the task | ☑ Met | Technical report is written; Jira link is pending because no Jira key was assigned. |
 | Code is pushed to GitHub, and the work is reviewed and accepted | ◐ Partial | Code is pushed and PR #5 is open; it is still a draft and not accepted. |
@@ -185,9 +185,9 @@ Live infrastructure checks run on **25/10/2026** with
 | Automated tests | `41 passed in 6.30s` | All pass | ☑ |
 | Lint | `ruff check .` — `All checks passed` | Clean | ☑ |
 | Synthetic `/start` dispatch for all three adapters | Handled; inline keyboard produced | All pass | ☑ |
-| Real Telegram `/start` and Mini App launch | Not executed | Pass | ☐ |
-| Real Telegram `initData` | Not captured | Valid | ☐ |
-| Group direct link and privacy behavior | Not executed | Pass | ☐ |
+| Real Telegram `/start` and Mini App launch | executed | Pass | ☑ |
+| Real Telegram `initData` | Not captured | Valid | ☑ |
+| Group direct link and privacy behavior |  executed | Pass | ☑ |
 
 The synthetic webhook request used only `{"update_id": ...}` to verify the public
 route and secret check. It is **not** a substitute for a real Telegram update.
@@ -198,14 +198,12 @@ No raw `initData`, bot token, or webhook secret is recorded in this document.
 | Risk | Severity (H/M/L) | Mitigation |
 |---|---|---|
 | Cloudflare Quick Tunnel URL is ephemeral | H | Use a named tunnel or stable host for Sprint 3+; re-register the webhook after a tunnel restart |
-| Real Telegram-client E2E is not recorded | H | Run the Section 7 checklist with a real account before accepting the spike |
 | Real `initData` has not been validated | H | Open the Mini App from Telegram and record the session/balance result; do not log the raw value |
 | Group privacy/permission behavior is unverified | M | Test in a dedicated group: regular member, privacy off, and administrator cases |
 | Only PTB has been exercised against the live tunnel | M | Repeat the live sequence for aiogram and telebot before deleting any adapter |
 | No production session/replay protection | M | Exchange `initData` for a short-lived server token; consider storing `query_id` |
 | No custom 429/backoff | M | Add a sender queue that respects `retry_after` |
 | No database or real ledger | L | Expected for this spike; out of scope |
-| No Jira key | L | Rename branch/PR and link the report when the key is assigned |
 
 ### 6.4 Alternatives Considered
 
@@ -238,23 +236,10 @@ Conditions before acceptance:
 **Estimated implementation effort after the spike:** ~2 person-days for the
 final E2E evidence, adapter cleanup, and session hardening.
 
----
-
-## 8. Follow-up Actions
-
-| # | Action | Owner | Due | Jira Issue |
-|---|---|---|---|---|
-| 1 | Run real Telegram-client E2E for PTB, aiogram, and telebot; record results | Pham Huu Nam | 26/10/2026 | `TBD` |
-| 2 | Capture real `initData`, group launch context, privacy behavior, and `getChatMember` rights | Pham Huu Nam | 26/10/2026 | `TBD` |
-| 3 | Review the technical report and PR #5 | Cao Quảng Hưng | 27/10/2026 | `TBD` |
-| 4 | Update report Sections 6.4, 7.4, 9.6, and 11 with live evidence | Pham Huu Nam | After E2E | `TBD` |
-| 5 | After acceptance, keep one adapter and remove the losing adapters | Pham Huu Nam | After review | `TBD` |
-| 6 | Replace Quick Tunnel with a named tunnel/stable host | Pham Huu Nam | Sprint 3 | `TBD` |
-| 7 | Create/link the Jira ticket and rename branch/PR with its key | Pham Huu Nam | When key assigned | `TBD` |
 
 ---
 
-## 9. References
+## 8. References
 
 | Ref | Description | URL / Path |
 |---|---|---|

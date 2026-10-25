@@ -2,8 +2,7 @@
 
 **Project:** TroMate — Roommate Expense & Rent Reconciliation Bot
 **Task:** Initialize the Mini App backend and select a Telegram bot library
-**Owner:** Nguyễn Gia Hào
-**Reviewer:** Cao Quảng Hưng
+**Owner:** Phạm Hữu Nam
 **Branch:** `feat/init-mini-app-backend`
 **Pull request:** [#5](https://github.com/AmnO-O/TroMateProject/pull/5) (draft; Telegram-client E2E pending)
 **Status:** **Draft** — implementation, local tests, and live infrastructure checks complete; Telegram-client E2E and review pending
