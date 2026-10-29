@@ -1,0 +1,64 @@
+@startuml TroMate_Use_Case_Diagram
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle hollow
+
+actor "Active Shared-Cost\nContributor" as Member
+actor "Room Financial Lead" as Lead
+actor "System\n(Background Engine)" as System
+
+Member <|-- Lead
+
+rectangle "TroMate System Boundary" {
+
+    package "Expense Logging & Parsing Engine" {
+        usecase "UC01: Log Expense via Natural Text" as UC01
+        usecase "UC02: Log Expense via Receipt Photo" as UC02
+        usecase "UC04: Scan Utility Meter & Landlord Invoice" as UC04
+
+        usecase "UC03a: Vision OCR Data Extraction" as UC03a
+        usecase "UC03b: Parse Intent & Split Logic (LLM/NLP)" as UC03b
+    }
+
+    package "Confirmation Protocol & State Machine" {
+        usecase "UC05: Confirm / Reject / Edit Pending Expense" as UC05
+    }
+
+    package "Debt Simplification & Settlement Engine" {
+        usecase "UC07: Simplify Group Debts (Minimal Cash Flow)" as UC07
+        usecase "UC08: Settle Net Debt" as UC08
+        usecase "UC09: Generate Dynamic VietQR & Confirmation" as UC09
+        usecase "UC10: Send Scheduled Debt Reminders" as UC10
+    }
+
+    package "Personal Ledger & Webview Dashboard" {
+        usecase "UC11: View Personal Ledger & Webview Dashboard" as UC11
+    }
+}
+
+' Primary Actor Associations
+Member --> UC01
+Member --> UC02
+Member --> UC05
+Member --> UC08
+Member --> UC11
+
+' Generalization Lead Associations
+Lead --> UC04
+
+' System Background Engine Automations
+System --> UC03a
+System --> UC03b
+System --> UC07
+System --> UC10
+
+' Include Relationships for Parsing Engine
+UC01 ..> UC03b : <<include>>
+UC02 ..> UC03a : <<include>>
+UC04 ..> UC03a : <<include>>
+UC03a ..> UC03b : <<include>>
+
+' Settlement Include
+UC08 ..> UC09 : <<include>>
+
+@enduml
