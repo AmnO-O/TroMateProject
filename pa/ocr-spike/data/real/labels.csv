@@ -1,0 +1,36 @@
+id,kind,difficulty,total,total_alt,date,item_count,meter_reading,note
+meter_real_01,meter,real,,,,,17924,EMIC 1-phase electricity meter (team room)
+meter_real_02,meter,real,,,,,17805,EMIC 1-phase electricity meter (team room)
+meter_real_03,meter,real,,,,,794,Actaris water meter; red drums are decimals
+meter_real_04,meter,real,,,,,95,Elster water meter; red drums are decimals
+meter_real_05,meter,real,,,,,1,Water meter 00001 + red 056
+meter_real_06,meter,real,,,,,141,"Blue water meter photographed sideways in low light; black drums 0141 + red decimals; blurry, drums mid-roll"
+meter_real_07,meter,real,,,,,0,Gelex EMIC 1-phase meter; 00000 + boxed 1/10 drum 2
+meter_real_08,meter,real,,,,,99985,EMIC 1-phase meter; 99985 + red 1/10 drum 3; serial 10 256616 and stamp 16202 are distractors
+meter_real_09,meter,real,,,,,33,EMIC electronic LCD meter (stock photo); 0000338 with a faint decimal point before the last digit = 33.8 kWh; 180 above is the OBIS register code
+meter_real_10,meter,real,,,,,0,Zermat water meter; last drum mid-roll between 0 and 1 (read the lower digit); red dials are decimals
+meter_real_11,meter,real,,,,,59,"Water meter A (H, LXS-15E); photo sideways; black 0059 + red 9; taken 29/01/2026"
+meter_real_12,meter,real,,,,,578,Water meter B (rusty ISO4064); photo sideways; fogged glass; black 0578; taken 29/01/2026
+meter_real_13,meter,real,,,,,8356,"EMIC CV140 No. 01296373; dark, oblique, flash glare; 08356 + boxed 1/10 drum 2; taken 01/03/2026"
+meter_real_14,meter,real,,,,,579,"Water meter B; flash, rust flakes on glass; black 0579 + red 9; taken 01/03/2026"
+meter_real_15,meter,real,,,,,60,"Water meter A; photo sideways, dusty glass; black 0060 + red 1; red dials are decimals; taken 28/03/2026"
+meter_real_16,meter,real,,,,,8387,"EMIC CV140 No. 01296373; frontal, low contrast; 08387 + boxed 1/10 drum 2; taken 28/03/2026"
+meter_real_17,meter,real,,,,,581,"Water meter B; wide shot, dial is small and washed out; feet and pipes in frame; black 0581; taken 28/03/2026"
+meter_real_18,meter,real,,,,,8404,"EMIC CV140 No. 01296373; rotated ~60 deg, dark, glare; 08404 + 1/10 drum 3; taken 30/04/2026"
+meter_real_19,meter,real,,,,,582,"Water meter B; flash, heavy rust; black 0582; taken 30/04/2026"
+receipt_real_01,receipt,real,49000,,20/01/2021,3,,VinMart+: TỔNG TIỀN PHẢI T.TOÁN; cash 50.000 is a distractor
+receipt_real_02,receipt,real,237576,,25/04/2026,3,,WinMart+: TỔNG TIỀN = Tiền cần thanh toán
+receipt_real_03,receipt,real,68097,468097,06/03/2026,6,,WinMart: 468.097 minus 400.000 voucher = 68.097 paid
+receipt_real_04,receipt,real,13500,,25/02/2025,1,,Long Châu: Tiền phải trả; second invoice and phone watermark in frame
+receipt_real_05,receipt,real,45000,,31/01/2020,2,,Long Châu: thumb covers part of the total line
+receipt_real_06,receipt,real,,,16/07/2021,,,Bách Hóa Xanh: total cut off; the right answer is no total
+receipt_real_07,receipt,real,,,16/07/2021,,,Bách Hóa Xanh: header crop only; the right answer is no total
+receipt_real_08,receipt,real,187500,187954,16/07/2021,8,,Bách Hóa Xanh: Tổng tiền 187.954; card payment rounded to 187.500
+receipt_real_09,receipt,real,450000,450430,03/08/2021,16,,Bách Hóa Xanh: Tổng tiền 450.430; Thanh toán rounded to 450.000
+receipt_real_10,receipt,real,537000,,13/11/2011,9,,Quán ăn Thiên Tân: TIEN MAT 537.000 (no diacritics); 9 lines incl. 10 TRA DA
+receipt_real_11,receipt,real,39000,,27/06/2025,1,,Highlands Coffee: Total 39.000 = Sub-Total = VNPAY QR; date glued to staff name (Hung27/06/2025); check no. 035902 and QR are distractors
+receipt_real_12,receipt,real,315580,,10/02/2026,9,,Thanhdo Mart: Tiền thanh toán 315.580; cash 450.000 and change 134.420 are distractors; Tổng số lượng 457; crumpled; thumb over item names; ĐÃ THANH TOÁN stamp
+bill_real_01,bill,real,6530000,,,12,,"Hạ Long boat restaurant, Hóa đơn thanh toán: Tổng cộng 6.530.000 (in words: Sáu triệu năm trăm ba mươi nghìn); line 8 overwritten 550→500; date fields left blank; thumb over item names"
+bill_real_02,bill,real,10787000,,,18,,"Phước Hải building supplies: written total (1) 10.787.000 but the line items sum to 10.790.000; 'a0' is shorthand for .000; per-line dates without year; bank details, phones and customer name blurred"
+bill_real_03,bill,real,36378000,14400000,,5,,"Phước Hải building supplies: items 14.400.000 + earlier debts (1) 18.329.000 and (2) 3.649.000 = Tổng cộng 36.378.000; 'a0' is shorthand for .000; folded paper; bank details, phones and customer name blurred"
+bill_real_04,bill,real,690000,,,5,,"Restaurant at Sân Thiên Trù, Hóa đơn bán lẻ: items 640.000 + 50 = 690.000 written below; printed TỔNG CỘNG row left empty; date blank; name and phone already blurred"

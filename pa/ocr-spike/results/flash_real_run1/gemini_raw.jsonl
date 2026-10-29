@@ -1,0 +1,17 @@
+{"id": "meter_real_01", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":17924,\"confidence\":0.95}", "fields": {"meter_reading": 17924}, "confidence": 0.95, "ms": 8057.8582670000005}
+{"id": "meter_real_02", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":17805,\"confidence\":0.95}", "fields": {"meter_reading": 17805}, "confidence": 0.95, "ms": 7416.79345}
+{"id": "meter_real_03", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":794,\"confidence\":0.95}", "fields": {"meter_reading": 794}, "confidence": 0.95, "ms": 6961.199311000001}
+{"id": "meter_real_04", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":95,\"confidence\":0.95}", "fields": {"meter_reading": 95}, "confidence": 0.95, "ms": 5773.240740000006}
+{"id": "meter_real_05", "text": "{\"kind\": \"meter\", \"total\": null, \"date\": null, \"meter_reading\": 1, \"confidence\": 0.95}", "fields": {"meter_reading": 1}, "confidence": 0.95, "ms": 6628.934515999987}
+{"id": "meter_real_06", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":482,\"confidence\":0.85}", "fields": {"meter_reading": 482}, "confidence": 0.85, "ms": 15659.383169999985}
+{"id": "meter_real_07", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":0,\"confidence\":0.95}", "fields": {"meter_reading": 0}, "confidence": 0.95, "ms": 7779.211829000019}
+{"id": "meter_real_08", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":99985,\"confidence\":0.95}", "fields": {"meter_reading": 99985}, "confidence": 0.95, "ms": 4861.362724000002}
+{"id": "meter_real_09", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":33,\"confidence\":0.95}", "fields": {"meter_reading": 33}, "confidence": 0.95, "ms": 4020.5795820000103}
+{"id": "meter_real_10", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":0,\"confidence\":0.98}", "fields": {"meter_reading": 0}, "confidence": 0.98, "ms": 10838.957229000016}
+{"id": "meter_real_11", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":59,\"confidence\":0.9}", "fields": {"meter_reading": 59}, "confidence": 0.9, "ms": 9226.568626000017}
+{"id": "meter_real_12", "text": "{\n  \"kind\": \"meter\",\n  \"total\": null,\n  \"date\": null,\n  \"meter_reading\": 57,\n  \"confidence\": 0.9\n}", "fields": {"meter_reading": 57}, "confidence": 0.9, "ms": 16800.603824999995}
+{"id": "meter_real_13", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":8356,\"confidence\":0.95}", "fields": {"meter_reading": 8356}, "confidence": 0.95, "ms": 7242.830963000017}
+{"id": "meter_real_14", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":579,\"confidence\":0.9}", "fields": {"meter_reading": 579}, "confidence": 0.9, "ms": 8252.82852099997}
+{"id": "meter_real_15", "text": "{\n  \"kind\": \"meter\",\n  \"total\": null,\n  \"date\": null,\n  \"meter_reading\": 60,\n  \"confidence\": 0.95\n}", "fields": {"meter_reading": 60}, "confidence": 0.95, "ms": 11341.877574000024}
+{"id": "meter_real_16", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":8387,\"confidence\":0.95}", "fields": {"meter_reading": 8387}, "confidence": 0.95, "ms": 6216.726612000002}
+{"id": "meter_real_17", "text": "{\"kind\":\"meter\",\"total\":null,\"date\":null,\"meter_reading\":581,\"confidence\":0.85}", "fields": {"meter_reading": 581}, "confidence": 0.85, "ms": 8567.96990800001}
