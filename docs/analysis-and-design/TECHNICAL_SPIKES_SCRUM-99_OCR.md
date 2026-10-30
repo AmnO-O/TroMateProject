@@ -1,7 +1,7 @@
 # Technical Spike — OCR for receipts, bills and meters
 
 **Spike ID:** SCRUM-99
-**Version:** 1.8
+**Version:** 1.9
 **Status:** `Completed`
 
 **Project:** TroMate
@@ -9,7 +9,7 @@
 **Prepared by:** Hào Nguyễn Gia (HNG)
 **Reviewed by:** [Reviewer Name] ([Initials])
 **Date created:** 27/10/2026
-**Date completed:** 29/10/2026
+**Date completed:** 30/10/2026
 
 ---
 
@@ -26,6 +26,7 @@
 | 28/10 | 1.6 | Added 4 real handwritten bills (personal details blurred): real set now 35 photos. Re-ran both Gemini prompts only. Found that Gemini's answers change between runs; the tuned prompt's gains in v1.5 did not repeat, so it was dropped. Rewrote findings and recommendation | Hào Nguyễn Gia |
 | 29/10 | 1.7 | Added a partial test of Gemini Flash (`gemini-3.5-flash`) on meters: 15 of 17 real meters in one run before the free-tier quota ran out; added it to the acceptance criteria, findings, risks and recommendation | Hào Nguyễn Gia |
 | 29/10 | 1.8 | Measured Gemini token usage per photo and checked paid-tier prices: Flash-Lite costs about $0.52 per 1,000 scans. Paid-tier latency not measured (needs billing). Re-evaluated risks and recommendation: production needs the paid tier, which conflicts with the zero-cost constraint (SDP 2.2) | Hào Nguyễn Gia |
+| 30/10 | 1.9 | Finished the first Gemini Flash run on real meters after the quota reset: meter_real_18 and _19 both read correctly, so Flash read 17 of 19 (89%). Measured Flash thinking tokens on those 2 photos (366–496) and updated the cost estimate | Hào Nguyễn Gia |
 
 ---
 
@@ -73,7 +74,7 @@ TroMate lets members log expenses by sending a photo of a receipt, a handwritten
 4. [x] Run Tesseract and PaddleOCR, each raw and with document pre-processing (page flattening + light correction)
 5. [x] Run Gemini Flash-Lite on both sets
 6. [x] Try a tuned Gemini prompt (`gemini_v2`) for the meter misses, and re-run both prompts to check the results repeat
-7. [~] Test the larger Gemini Flash model on meters: one run on 17 of 19 real meters before the free-tier quota ran out; second run and synthetic meters still to do
+7. [~] Test the larger Gemini Flash model on meters: one run on all 19 real meters (17 before the free-tier quota ran out, the last 2 after it reset); second run and synthetic meters still to do
 8. [x] Measure Gemini token usage per photo and look up paid-tier prices; paid-tier latency not measured (needs billing)
 9. [x] Record findings and update this document
 
@@ -87,14 +88,14 @@ How the harness works: each classic engine returns text boxes → `layout.py` re
 
 ## 5. Acceptance Criteria
 
-The Gemini Flash-Lite columns use the final run on all 35 real photos. Gemini Flash was tested on meters only, in one partial run (17 of 19 real meters), so its column is provisional.
+The Gemini Flash-Lite columns use the final run on all 35 real photos. Gemini Flash was tested on meters only, in one run on the 19 real meters, so its column is provisional.
 
-| # | Criterion | Target | Met? (best classic engine: PaddleOCR) | Met? (Gemini Flash-Lite) | Met? (Gemini Flash-Lite + tuned prompt) | Met? (Gemini Flash, meters only, partial) |
+| # | Criterion | Target | Met? (best classic engine: PaddleOCR) | Met? (Gemini Flash-Lite) | Met? (Gemini Flash-Lite + tuned prompt) | Met? (Gemini Flash, meters only, one run) |
 |---|---|---|---|---|---|---|
 | AC1 | Total amount exact match, receipts + bills | ≥ 90% | ☐ Synthetic 81% (21/26, with prep); real receipts 75% (9/12) | ☑ Synthetic 100% (26/26); real 94% (15/16): receipts 11/12, handwritten bills 4/4 | ☑ Synthetic 100% (26/26); real 94% (15/16): receipts 12/12, handwritten bills 3/4 | n/a: not tested on receipts or bills |
-| AC2 | Meter reading exact match | ≥ 90% | ☐ Synthetic 40% (4/10); real 11% (2/19, with prep) | ☐ Synthetic 90% (9/10); real 53% (10/19) | ☐ Synthetic 90% (9/10); real 53% (10/19) | ☐ Real 88% (15/17), one run; synthetic not run yet. Close to the target, needs a full second run |
+| AC2 | Meter reading exact match | ≥ 90% | ☐ Synthetic 40% (4/10); real 11% (2/19, with prep) | ☐ Synthetic 90% (9/10); real 53% (10/19) | ☐ Synthetic 90% (9/10); real 53% (10/19) | ☐ Real 89% (17/19), one run; synthetic not run yet. Just under the target, needs a second run |
 | AC3 | p95 latency per photo, including pre-processing | < 3.5 s | ☑ With photos downscaled to 1280 px: synthetic 1.9 s, real 2.8 s (worst 3.3 s). At full size, real p95 2.9 s but the worst photo took 4.2–5.0 s | ☐ Synthetic 27.8 s; real 9.9–28.6 s depending on the day (free tier) | ☐ Synthetic 28.6 s; real 23.8–24.7 s (free tier) | ☐ Real p50 7.8 s, p95 15.7 s (free tier, one request at a time) |
-| AC4 | Cost at 1,000 scans/month | Free | ☑ Self-hosted, free | ☐ Not free in production (see 6.3): paid tier measured at about $0.52 per 1,000 scans | ☐ Slightly more than the original prompt (longer prompt) | ☐ Estimated $3–11 per 1,000 scans; thinking tokens not measured, and `gemini-3.5-flash` has no published price |
+| AC4 | Cost at 1,000 scans/month | Free | ☑ Self-hosted, free | ☐ Not free in production (see 6.3): paid tier measured at about $0.52 per 1,000 scans | ☐ Slightly more than the original prompt (longer prompt) | ☐ About $2.5–3 per 1,000 scans on the 2 photos where thinking was measured (366–496 tokens), more on photos that think longer; `gemini-3.5-flash` has no published price |
 | AC5 | Licence compatible with the project | Apache / MIT | ☑ Tesseract Apache 2.0, PaddleOCR Apache 2.0, RustO binding MIT | n/a: cloud API under Google's terms | n/a: cloud API under Google's terms | n/a: cloud API under Google's terms |
 | AC6 | Confidence score separates right from wrong reads | Clear gap | ☐ PaddleOCR 0.96 vs 0.95 synthetic, 0.94 vs 0.84 real; Tesseract 0.87 vs 0.78 synthetic, 0.60 vs 0.51 real | ☐ Synthetic 0.99 vs 0.99; real 0.94 vs 0.96 (higher when wrong) | ☐ Synthetic 1.00 vs 0.99; real 0.94 vs 0.95 (higher when wrong) | ☐ Real 0.94 vs 0.88 (only 2 wrong reads, too few to set a threshold) |
 | AC7 | Proof of concept runs end to end | Pass | ☑ `python run_spike.py` | ☑ `python run_spike.py --engines gemini` | ☑ `python run_spike.py --engines gemini_v2` | ☑ `GEMINI_MODEL=gemini-3.5-flash GEMINI_MAX_TOKENS=8192` |
@@ -121,7 +122,7 @@ Since both engines were far below the 90% target after 31 real photos, they were
 
 **Gemini's answers change between runs.** Both prompts were run twice on the same 31 receipts and meters with temperature 0, and 9 of the 62 answers changed. In the first run the tuned prompt seemed to fix two meters; in the second run both were wrong again and two other meters came out right. Small differences between prompts are therefore just noise, and any comparison needs at least two runs.
 
-**Gemini Flash reads meters much better (partial result).** The larger Flash model (`gemini-3.5-flash`), with the original prompt, read 15 of 17 real meters correctly, against 9 of the same 17 for Flash-Lite. It never added a decimal drum to the reading: it read 794, 8356, 8387, 59 and 1 where Flash-Lite read 7944, 83562, 833872, 599 and 10, and it also got the all-zero Gelex meter and the drum caught mid-roll right. Its two misses are the hardest photos in the set, both photographed sideways: 482 for 141 (low light, missed by every engine) and 57 for 578 (fogged glass, a dropped digit). It was not slower than Flash-Lite (p50 7.8 s, p95 15.7 s). This is one run on 17 of 19 meters: the free-tier quota for Flash ran out after about 20 requests, so the second run and the synthetic meters are still to do (next step 3).
+**Gemini Flash reads meters much better (one run).** The larger Flash model (`gemini-3.5-flash`), with the original prompt, read 17 of 19 real meters correctly (89%), against 10 of 19 for Flash-Lite. It never added a decimal drum to the reading: it read 794, 8356, 8387, 8404, 59 and 1 where Flash-Lite read 7944, 83562, 833872, 84045, 599 and 10, and it also got the all-zero Gelex meter and the drum caught mid-roll right. Its two misses are the hardest photos in the set, both photographed sideways: 482 for 141 (low light, missed by every engine) and 57 for 578 (fogged glass, a dropped digit). It was not slower than Flash-Lite (p50 7.8 s, p95 15.7 s). The free-tier quota for Flash ran out after about 20 requests, so the first run was finished a day later (meter_real_18 and _19), and the second run and the synthetic meters are still to do (next step 3).
 
 ### 6.2 Detailed Results
 
@@ -213,7 +214,7 @@ Real receipts did better than synthetic ones because thermal receipts print the 
 
 The tables above show run 2.
 
-**Gemini Flash on meters (partial).** One run of `gemini-3.5-flash` with the original prompt, on the real meters only (results in `results/flash_real_run1/`). The free-tier quota ran out at meter_real_18, so meter_real_18 and meter_real_19 were not read:
+**Gemini Flash on meters.** One run of `gemini-3.5-flash` with the original prompt, on the real meters only (results in `results/flash_real_run1/`). The free-tier quota ran out at meter_real_18, so meter_real_18 and meter_real_19 were read on 30/10, after it reset, with the same settings:
 
 | Photo | Truth | Gemini Flash | Gemini Flash-Lite (run 2) |
 |---|---|---|---|
@@ -234,8 +235,9 @@ The tables above show run 2.
 | meter_real_15 water meter A, 28/03, sideways | 60 | 60 ✓ | 60 ✓ |
 | meter_real_16 EMIC electricity, 28/03 | 8387 | 8387 ✓ | 833872 ✗ |
 | meter_real_17 water meter B, 28/03, tiny dial in wide shot | 581 | 581 ✓ | 581 ✓ |
-| meter_real_18, meter_real_19 | 8404, 582 | not run (quota) | 84045 ✗, 582 ✓ |
-| **Total on the 17 photos read** | | **15/17 (88%)** | **9/17 (53%)** |
+| meter_real_18 EMIC electricity, 30/04, rotated 60°, glare | 8404 | 8404 ✓ | 84045 ✗ |
+| meter_real_19 water meter B, 30/04, rust | 582 | 582 ✓ | 582 ✓ |
+| **Total** | | **17/19 (89%)** | **10/19 (53%)** |
 
 Flash is a thinking model, and its reasoning counts against the reply's token cap. The first Flash attempt used the 512-token cap set for Flash-Lite, and 13 of 19 replies were cut off before the answer, so the cap is now configurable (`GEMINI_MAX_TOKENS`) and was set to 8192 for this run. Requests were sent one at a time.
 
@@ -244,12 +246,12 @@ Flash is a thinking model, and its reasoning counts against the reply's token ca
 | | Gemini Flash-Lite (`gemini-3.5-flash-lite`) | Gemini Flash (`gemini-3.5-flash`) |
 |---|---|---|
 | Input tokens per photo | 1,241–1,292 (mean 1,261), measured | Same, measured |
-| Output tokens per photo | 48–60, measured; no thinking tokens | About 50 for the answer plus thinking tokens; thinking not measured (quota), but more than about 450 on most meters, since they overflowed a 512-token cap |
+| Output tokens per photo | 48–60, measured; no thinking tokens | 28–29 for the answer plus 366–496 thinking tokens, measured on 2 meters (meter_real_18, _19); 13 of 19 meters overflowed a 512-token cap on the first attempt, so some photos think longer |
 | Price per 1M tokens | $0.30 input, $2.50 output | Not published for this model; listed Flash models (3.6, 3.8) cost $0.75 input, $3.75 output until 31/12/2026, then $1.50 and $7.50 |
-| Cost per scan | about $0.0005 | about $0.003–0.011 (500–2,500 thinking tokens) |
-| **Cost per 1,000 scans** | **about $0.52** | **about $3–11** (double from 2027) |
+| Cost per scan | about $0.0005 | about $0.0025–0.003 on the 2 measured photos; more on photos that think longer |
+| **Cost per 1,000 scans** | **about $0.52** | **about $2.5–3** on the measured photos (double from 2027) |
 
-The earlier estimate of about $1 per 1,000 scans assumed 1,500 input and 150 output tokens; the real counts are lower. Free-tier latency in this measurement was 4.7–16.5 s per photo (p50 about 7 s). Paid-tier latency is still unknown.
+The earlier estimate of about $1 per 1,000 scans assumed 1,500 input and 150 output tokens; the real counts are lower. Free-tier latency in this measurement was 4.7–16.5 s per photo (p50 about 7 s). Paid-tier latency is still unknown. Flash's thinking tokens were read from the usage data of the meter_real_18 and _19 replies; 2 photos is too few to fix a price, so the Flash figure is a rough estimate.
 
 **How Gemini was run.** One request per photo with the prompt and JSON schema in `engines.py`, temperature 0, 2 requests at a time, on the free tier. The first schema also asked for line items, but on some receipts Gemini kept listing items until it hit the output limit and the JSON was cut off. Items are not scored, so they were removed and replies were capped at 512 tokens. With 5 requests at a time the free tier returned 429 (per-minute quota), so the harness uses 2 and backs off on 429. Latency is measured per request, so it includes Google's queueing.
 
@@ -263,7 +265,7 @@ The tuned prompt (`GEMINI_V2_PROMPT` in `engines.py`) uses the same model and se
 |---|---|---|---|
 | Label and amount end up on different rows on tilted photos, or two labels share a row | `THÀNH TIỀN: Tổng tiền hàng: 314.500đ` (receipt_05) | PaddleOCR, Tesseract | Partly: the tilt-aware line rebuild in the harness recovers some; perspective-heavy photos still fail |
 | Total confused with cash handed over | `500009` read from the `Tiền khách đưa` row (receipt_12) | Tesseract | Parser rules help, but they depend on rows being right |
-| Red or boxed decimal drums read as an extra digit | `389398` for 38939 (meter_07), `178055` on a real meter; Gemini `27493` for 2749 (meter_09), `7944` for 794 (meter_real_03), `83562` for 8356 (meter_real_13) | All engines except Gemini Flash (Gemini Flash-Lite: 1 of 10 synthetic, 6 of 19 real; Gemini Flash: 0 of 17 real) | No for PaddleOCR: text OCR has no colour; it needs a separate digit-window detector. Gemini Flash-Lite does it at 0.95–0.99 confidence and a tuned prompt didn't stop it; Gemini Flash didn't do it in one partial run; a check against last month's reading catches it |
+| Red or boxed decimal drums read as an extra digit | `389398` for 38939 (meter_07), `178055` on a real meter; Gemini `27493` for 2749 (meter_09), `7944` for 794 (meter_real_03), `83562` for 8356 (meter_real_13) | All engines except Gemini Flash (Gemini Flash-Lite: 1 of 10 synthetic, 6 of 19 real; Gemini Flash: 0 of 19 real) | No for PaddleOCR: text OCR has no colour; it needs a separate digit-window detector. Gemini Flash-Lite does it at 0.95–0.99 confidence and a tuned prompt didn't stop it; Gemini Flash didn't do it in one run; a check against last month's reading catches it |
 | Nameplate numbers taken as the reading | `4064` from "ISO 4064", `22010`/`22001` from "220V", "5(20)A", "2001", year `2018`, inspection sticker `72846`/`16202`, `1000 imp/kWh` | PaddleOCR, Tesseract | Partly: add these to the parser's nameplate filter |
 | 7-segment LCD digits not detected | meter_02, meter_04: no digits at all | PaddleOCR, Tesseract | Needs a dedicated 7-segment model |
 | Total invented when there is none | 132,700 on a receipt header with no total (receipt_real_07) | Gemini | Partly: if the line items don't add up to the total, ask the member |
@@ -275,7 +277,7 @@ The tuned prompt (`GEMINI_V2_PROMPT` in `engines.py`) uses the same model and se
 | Risk | Severity (H/M/L) | Mitigation |
 |---|---|---|
 | Production cannot run on the Gemini free tier: Google may use free-tier inputs to improve its products, Flash's free quota ran out after about 20 requests in a day, and one team member's new project was refused the free tier for every model. The paid tier breaks the zero-cost constraint (SDP 2.2) | H | The measured cost is small: about $0.52 per 1,000 scans with Flash-Lite. The team needs to approve a small OCR budget (next step 2). If it is not approved, the zero-cost option is PaddleOCR for receipts with mandatory review and manual meter entry |
-| Gemini Flash-Lite reads only 10 of 19 real meters (53%), mostly by adding the decimal drum, and a tuned prompt didn't help | H | Make F3 photo-assisted: Gemini prefills the reading, the app checks it against last month's, and the member confirms it. Gemini Flash read 15 of 17 real meters in one partial run; confirm it with a full test before switching meters to Flash (next step 3) |
+| Gemini Flash-Lite reads only 10 of 19 real meters (53%), mostly by adding the decimal drum, and a tuned prompt didn't help | H | Make F3 photo-assisted: Gemini prefills the reading, the app checks it against last month's, and the member confirms it. Gemini Flash read 17 of 19 real meters in one run; confirm it with a second run before switching meters to Flash (next step 3) |
 | Gemini latency breaks the 3.5 s budget (Vision NFR 5.1): p95 9.9–28.6 s on the free tier, varying by day; paid-tier latency not measured | H | Run OCR in the background: save the photo, show the expense as "reading…" and fill the PENDING card when the result arrives. Measure paid-tier latency (next step 1) and agree whether NFR 5.1 applies to the upload or the OCR result (next step 2) |
 | Confidence scores don't flag wrong reads (Flash-Lite averages 0.96 on wrong reads and 0.94 on right ones), so "low confidence → manual edit" (Vision 5.3) can't rely on them | H | Keep every OCR result PENDING with [Edit] (already in SDP). Add our own checks: line items must add up to the total, and a meter reading must be at least last month's and less than 10 times it |
 | Too few real receipts (12) and handwritten bills (4); synthetic handwriting is neater than real. Some photos (meter_real_07–10, receipt_real_10–11, all 4 bills) look like web images rather than photos from our own phones | H | Collect real bills and more receipts from our rooms and re-run the harness before Sprint 4 |
@@ -293,8 +295,8 @@ The tuned prompt (`GEMINI_V2_PROMPT` in `engines.py`) uses the same model and se
 
 | Option | Pros | Cons | Decision |
 |---|---|---|---|
-| Multimodal LLM (Gemini Flash-Lite) returns JSON fields | Best measured: 41 of 42 totals across both sets, including 4/4 real handwritten bills; best meter score (90% synthetic, 53% real); reads layout, colour and handwriting together; no parser to maintain; one call for receipts, bills and meters | p95 9.9–28.6 s on the free tier; misses the meter target on real photos; answers vary between runs; cloud dependency; needs the paid tier in production (about $0.52 per 1,000 scans); output must be validated | ✅ Chosen for receipts and bills, run in the background because of latency; meter readings stay user-confirmed |
-| Gemini Flash (`gemini-3.5-flash`) for meters | 15 of 17 real meters in one partial run, against 9 for Flash-Lite; no decimal-drum errors; no slower than Flash-Lite | Only one partial run, synthetic meters not run; tiny free-tier quota, so it needs the paid tier; about $3–11 per 1,000 scans (estimate); thinking tokens need a larger output cap | ⏳ Promising; decide after the full test (next step 3) |
+| Multimodal LLM (Gemini Flash-Lite) returns JSON fields | Best measured on totals: 41 of 42 across both sets, including 4/4 real handwritten bills; reads layout, colour and handwriting together; no parser to maintain; cheapest Gemini model (about $0.52 per 1,000 scans), which matters because receipts are the most frequent scan | p95 9.9–28.6 s on the free tier; misses the meter target on real photos (10/19), mostly by adding the decimal drum; answers vary between runs; cloud dependency; needs the paid tier in production; output must be validated | ✅ Chosen for receipts and bills, run in the background because of latency. Not used for meters |
+| Gemini Flash (`gemini-3.5-flash`) for meters | 17 of 19 real meters in one run, against 10 for Flash-Lite; no decimal-drum errors; no slower than Flash-Lite | Only one run, synthetic meters not run; tiny free-tier quota, so it needs the paid tier; about 5 times Flash-Lite's price, about $2.5–3 per 1,000 scans (estimate from 2 photos); thinking tokens need a larger output cap | ✅ Chosen for meters. A member sends only 1–2 meter photos a month on average, so the higher price adds well under $0.01 per member a month. Readings stay user-confirmed and checked against last month's. |
 | Gemini Flash-Lite with a tuned prompt (`gemini_v2`) | Same receipt results | Same meter score as the original prompt (10/19) over two runs; misread one handwritten bill; longer prompt costs more | ❌ Not adopted: no measurable gain |
 | PaddleOCR PP-OCRv5 + our parser | Best classic engine; 75% on real receipts; free; self-hosted | 5–11% on real meters; weak confidence signal; loses Vietnamese tone marks; 330 MB RAM | ✅ Fallback for receipts if Gemini is unavailable |
 | Tesseract 5 + our parser | Light (60 MB); keeps tone marks on clean print | 4 of 12 real receipts; 0 of 29 meters (synthetic + real) | ❌ Rejected |
@@ -307,18 +309,12 @@ The tuned prompt (`GEMINI_V2_PROMPT` in `engines.py`) uses the same model and se
 
 - **⚠️ Proceed with conditions.** Build Sprint 4 OCR (T13) as **photo → Gemini Flash-Lite (original prompt, paid tier) → JSON fields → validation → PENDING card with [Edit]**, with PaddleOCR + VND parser as the fallback. Gemini meets the 90% target for totals: 26/26 synthetic and 15/16 real, including all 4 handwritten bills.
 - **Use the paid tier, and get the budget approved.** The free tier is fine for testing but not for production (privacy terms, quotas, availability). The paid tier costs about $0.52 per 1,000 scans with Flash-Lite, well under $1 a month at the planned 1,000 scans a month, but it breaks the zero-cost constraint in SDP 2.2, so the team needs to approve it (next step 2). If it is not approved, use the zero-cost option: PaddleOCR for receipts (75% on real receipts) with mandatory review, and manual meter entry with the photo attached as evidence.
-- **Make the meter scanner photo-assisted.** Flash-Lite does not meet the target for meters (9/10 synthetic, 10/19 real): Gemini prefills the reading, the app flags a reading that is lower than last month's or more than 10 times it, and the member always confirms it. Gemini Flash read 15 of 17 real meters in a partial test (88%). If the full test confirms that (next step 3), meters should use Flash. At an estimated $3–11 per 1,000 scans and a few meter photos per room per month, that adds only cents a month.
+- **Make the meter scanner photo-assisted.** Flash-Lite does not meet the target for meters (9/10 synthetic, 10/19 real): Gemini prefills the reading, the app flags a reading that is lower than last month's or more than 10 times it, and the member always confirms it. Gemini Flash read 17 of 19 real meters in one run (89%). If a second run confirms that (next step 3), meters should use Flash. At an estimated $2.5–3 per 1,000 scans and a few meter photos per room per month, that adds only cents a month.
 - **Run OCR in the background.** Gemini can't meet the 3.5 s budget as a blocking call (p95 up to 28.6 s on the free tier; paid tier not measured), so the member sends the photo, the expense appears as "reading…", and the PENDING card fills in when the result arrives.
 
 Whichever engine we use, every OCR result stays PENDING and is never auto-accepted (already in SDP 2.2), and the validator checks the total against the line items and the meter reading against last month's.
 
 **Estimated implementation effort** (if proceeding): ~5 person-days (Gemini client + schema + validation 2 days, PaddleOCR fallback service 2 days, test set and regression 1 day), within the 13 SP planned for T13.
-
-**Next steps:**
-
-1. Turn on billing for a team test project, with a budget alert, and measure paid-tier latency for Flash-Lite and Flash, plus Flash's thinking tokens. Token counts for Flash-Lite are already measured (6.2).
-2. Agree as a team: (a) a small paid-tier OCR budget in place of the zero-cost constraint (SDP 2.2), and (b) whether the 3.5 s budget (Vision NFR 5.1) applies to the upload or to the OCR result.
-3. Finish the Gemini Flash meter test: read meter_real_18 and _19, run all 19 real meters a second time, and run the 10 synthetic meters (about 31 requests; needs the quota reset or the paid tier).
 
 ---
 
@@ -331,5 +327,5 @@ Whichever engine we use, every OCR result stays PENDING and is never auto-accept
 | R3 | Azure Document Intelligence prebuilt language support (receipt locales English only) | https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/language-support/prebuilt?view=doc-intel-4.0.0 |
 | R4 | Tesseract 5.3.4 with Ubuntu `tesseract-ocr-vie` data | https://github.com/tesseract-ocr/tesseract |
 | R5 | PP-OCRv5 models and Node binding used in the PoC (`@rustors/node`, `@rustors/model-ppocrv5-mobile`, `@rustors/model-ppocrv5-latin` 0.3.2) | https://www.npmjs.com/package/@rustors/node |
-| R6 | Proof-of-concept code, test set and results | https://github.com/AmnO-O/TroMateProject/tree/main/pa/ocr-spike |
+| R6 | Proof-of-concept code, test set and results | https://github.com/AmnO-O/TroMateProject/tree/main/src/ocr-spike |
 | R7 | TroMate Vision v2.0 and SDP v2.0 | project files |
