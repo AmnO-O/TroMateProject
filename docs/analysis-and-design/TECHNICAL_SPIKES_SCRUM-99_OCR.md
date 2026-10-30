@@ -7,7 +7,7 @@
 **Project:** TroMate
 **Sprint / Iteration:** Sprint 2 — Elaboration
 **Prepared by:** Hào Nguyễn Gia (HNG)
-**Reviewed by:** [Reviewer Name] ([Initials])
+**Reviewed by:** [Kiệt Trịnh Võ Nam] (KTVN)
 **Date created:** 27/10/2026
 **Date completed:** 30/10/2026
 
