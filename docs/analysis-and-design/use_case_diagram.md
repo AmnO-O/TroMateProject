@@ -7,7 +7,9 @@
 
 ## 1. Introduction
 
-This document provides a detailed specification of the Use-Case Model for **TroMate** — an Intelligent Shared Expense Management and Room Debt Settlement System. It defines all system actors, primary use cases, detailed scenarios (including advanced natural language and OCR parsing flows), and PlantUML diagrams mapping their relationships in alignment with Vision Document v2.9.
+This document provides a detailed specification of the Use-Case Model for **TroMate** — an Intelligent Shared Expense Management and Room Debt Settlement System. It defines system actors, primary use cases, parsing scenarios, and a PlantUML diagram. The agreed scope baseline is the [PA1 Vision Small Project document, version 1.0](../../pa/PA1-Group06/vision/rup_vision_sp.docx); remaining alignment issues are recorded in the [diagram review](../usecase-specification/usecase-diagram-summary.md).
+
+**Current scope decision:** UC06 (Auto-Accept Expense) is excluded from the current model and specification while the behavior remains under research. No final adoption decision has been made. Existing UC IDs are preserved; unapproved expenses remain `PENDING` under the current baseline.
 
 ---
 
@@ -20,7 +22,7 @@ This document provides a detailed specification of the Use-Case Model for **TroM
 
 ### 2.2 Secondary / External Actors (System & Engines)
 
-* **System (Background Engine & Telegram Bot):** An automated background actor executing real-time processing tasks. This includes executing NLP/OCR parsing pipelines, solving the Minimum Cash Flow Problem on directed debt graphs, enforcing the 5-minute auto-accept timer, and firing scheduled 24h/48h debt reminders.
+* **System (Background Engine & Telegram Bot):** An automated background actor executing real-time processing tasks. This includes executing NLP/OCR parsing pipelines, solving the Minimum Cash Flow Problem on directed debt graphs, and firing scheduled 24h/48h debt reminders.
 
 ---
 
@@ -109,13 +111,6 @@ This document provides a detailed specification of the Use-Case Model for **TroM
 
 ---
 
-### UC06: Auto-Accept Expense (Timeout Service)
-* **Primary Actor:** System (Background Engine)
-* **Goal:** Automatically approve pending text-logged expenses after a timeout to eliminate approval bottlenecks.
-* **Basic Flow:** Background job tracks pending text expenses -> If no member clicks `[Reject]` within 5 min ± 30 s, system automatically transitions state from `PENDING` to `CONFIRMED` and triggers **UC07**. *(Note: OCR receipt scans strictly require manual approval and bypass this auto-accept flow)*.
-
----
-
 ### UC07: Simplify Group Debts (Real-Time Minimal Cash Flow)
 * **Primary Actor:** System (Background Engine)
 * **Goal:** Recalculate group Net Balances and solve the Minimum Cash Flow Problem on directed debt graph $G=(V,E)$ in real-time (< 0.5s latency).
@@ -150,7 +145,9 @@ This document provides a detailed specification of the Use-Case Model for **TroM
 
 ## 4. Use-Case Diagram (PlantUML)
 
-![TroMate Use-Case Diagram](https://uml.planttext.com/plantuml/png/ZLLDJ-D03BrNwd-mUc3BeK2XBH0XH6a18RNGfS1UaD0qCSaioKmrCorqF_xxUYOV2o5bjmSKsNxFzhF7d6Z3b5aaCTmgEMO67-yqFWuO_Hbo5YgMr6inFXam4XGF8mC1L-WRBaMzff-vc3EAWJdpdrc8KxEA4QoVYJ36jn7CDrAb_aZ6iNofr-erPuH6d_YM2DE8AGnQ0wdDWnX8OHIVBIYW0Kp369CPgW9o8sK2vrmmuNCMmmXPuCBiHn4qNMc3oODedb9veP8B4S2P2Bd0JHUS-cqXAJiS_MgrCefwhMW36fas6G1EBHDJgmRyj850lqm0Q9ozpb5eX94CAL486p1XIjklDBF3GFPRQFH9QcZS3NRQdiL0Zbzo1bVCB1HrTuklnXLimwhHkn_HD-WZdnkOHDB87BvR3UzuCFMPW3l3OsvMfBOXEJPWn4GGInN0fLXAxcDEq_bBKqsunpouvvhM1Au7Dp1aXb5nHZ6tEZdD7bk3ddbEDgIy1eMXIgPpAipso7reZaRZxQlHPBFWcQKylp-CWzReYQk4sQmmKQI4BsDBP-mynyoFFfj9ruEC0BP9p--q4VHn5b0b4nI1csggU5v9jvgevq6VLhdLztsaaUHZQjxo1EN2m1JLakGj6kgjwsU8Cuhc2QdnnFsqBUe6ZOaniKhzOylslHozWWjw4NEmZ1gQOovuGhj6Jp-2StgVHItxrKm7NfOMhj0ubXnmK0quzE021Ieh_70bM4AJlETeljvG1s_dbFCSLlAqTsnYUibJFy9W4MFWajDu4Yu2L3g3jtVMQJYX82dSrGX2j-RVSBRa-49hggEPP2fOfr-xRTUQ8l-B8wsZNTJXIlb2QqXAgnNqtPNgQotfXjd6TN68MgtZxB6_D-oM3TsouQ1aiEbjqbJwcFz8TyOUkL9gPyfOEYaeltVby-cMESc1MLG6jM-wP9cLBRsoORzaiCEp1LmAFru4ICEDqsmHdsju8jdUNzLwpQe5MrjPGl3Ww8YduEDZvzqjlAp2s_dKIyQrrBRCQnEHu5cncfQ1JXsjg7RWWnnxMC7SWzJNTJvqi9JrXBxe__8V)
+Editable source: [use_case_diagram.puml](use_case_diagram.puml).
+
+![TroMate Use-Case Diagram](https://uml.planttext.com/plantuml/png/ZLNRJkCm47tFLupwmC93WHOG9KA8qW92Qjbk2-mB4feaqyHBObUsM-XU_dt7kNHf2MZpKFaovypnyNXwRYngEyzIkDDgY9QUxWqzzP1_-W9ZZPcNqjI2LQ15d5Y8XARG2YKzyopa33a2PXW-OqmJkqm9t3RAEAKt0HXQfOljHAMfUl6yV0aQNUPQ44mIr1GrUyhOHzbJqceHp3cW0MXWI5b0kaACbShWIaYKeS0K1eHH7kK6LSnaQInbZtBxWfN5Mirb19So5f9syjXYt_CAPZZztMmMU6-b7Xgb8MKmN3WMrCi6_F8yuAyyDJGkNsSa3S50nPmYXYqOeJPkLEHq22Y_kQ6GpON6VM-_vJi8LF25GBX5EzTygZjwjRbI5rOBRhy7ZoaaCRCmIfHL5RfTYpxqOHAYX7ihKc6NRB5b7xPWW39AbOxWHYwK2AbYEVHgQGxGXmTXk1hWQsyCVRJ8Ygp6l48gy07MWmC_DueucILfEVranchSkKG8suF1SEzsCDfPqGGvpPyDzxbQfa9dw3B2IFFHGvKwBkikRuXXyiaL7FbGuc6F_Vl1jy-3ouXLZ4X6-HqM3bSgZcf5z2cmC14Pwv-AiD324iZQb39tjiyhuTYlm4kuvdATWICqi3qKKcHS3_mW4xZYXxDouxYMgEENIU6MR4vInNTguqzyk2P9sbdLNqhCsFW7GVRRcEM_TRQYEQcZQUsxjFp69c52qJobA4_DXcP2HgHDYMxjrvetuWWbyxSSnNaPVgTW8UY52yeaWK8TVM1Sg-NgZmF_YwBGq2eri8elN2zihrv2D-yRNMCKDnLtNbFrXcRph7Y4w_FsnlneOzvPdtDMpbPOdOgVHO6uZhEUCryf6GuTekezcsqCkjmTin9L1fKuVcqR2y76ml7wd6-5Czt8C9r7n7UM5hI9c1cOiYlhpSnpPi3kRaaDFfoUYW9xTkOsswjDVBzv-Dachtt4wwpuzvXAhGxJgI0dcuXpBaZ-N_F-0W00)
 ---
 
 ## 5. Summary Matrix & Definition of Done Mapping
@@ -163,7 +160,6 @@ This document provides a detailed specification of the Use-Case Model for **TroM
 |**UC03b**| Parse Intent & Split Logic (LLM/NLP)| System Engine| High (MVP) | Feature 1, 2|
 | **UC04** | Scan Meter & Landlord Invoice | Room Lead | Medium (MVP) | Feature 3 |
 | **UC05** | Confirm/Reject Pending Expense | Room Member | High (MVP) | Feature 6 |
-| **UC06** | Auto-Accept Expense | System Engine | High (MVP) | Feature 11 |
   | **UC07** | Simplify Group Debts | System Engine | High (MVP) | Feature 4 |
 | **UC08** | Settle Net Debt | Room Member | High (MVP) | Feature 5 |
 | **UC09** | Generate Dynamic VietQR | System Engine | High (MVP) | Feature 5 |
