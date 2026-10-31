@@ -76,7 +76,7 @@ TroMate is designed as a **zero-install, mobile-first** application utilizing fr
 |---|---|---|
 | **User Interface** | Telegram Bot API + Mini App | Chat bot interface and embedded Web App shell (also usable as a standalone web app) |
 | **Payment Gateway** | VietQR (NAPAS) | Dynamic QR code generation for exact-amount transfers |
-| **Backend & Database** | Python / Node.js *(TBD)* | API service, OCR/NLP pipeline, and ledger storage |
+| **Backend & Database** | Python / FastAPI *(spike)* | Mini App API, Telegram webhook adapters, and mock balance data; database TBD |
 | **Secondary Channel** | Zalo API *(Future)* | Potential secondary integration post-MVP |
 
 ---
@@ -93,7 +93,8 @@ TroMateProject/
 ├── pa/                   # Graded course practical assignments
 │   ├── PA0/              # Project proposal & tool index
 │   └── PA1-Group06/      # PA1 submission package (folder structure only)
-├── src/                  # Application source code (populated in Construction phase)
+├── src/                  # Application source code
+│   └── backend/          # FastAPI Mini App backend and bot-library spike
 └── README.md             # Project overview & guide
 ```
 
@@ -110,6 +111,8 @@ TroMateProject/
 | **Vision Document** | [`docs/requirements/vision.md`](docs/requirements/vision.md) |
 | **UI Flows & Screen Inventory** | [`docs/analysis-and-design/ui-flows.md`](docs/analysis-and-design/ui-flows.md) |
 | **UI Prompts & Wireframes** | [`docs/analysis-and-design/ui-prompts.md`](docs/analysis-and-design/ui-prompts.md) |
+| **Telegram Bot Library Evaluation** | [`docs/analysis-and-design/telegram-bot-library-evaluation.md`](docs/analysis-and-design/telegram-bot-library-evaluation.md) |
+| **Backend Spike README** | [`src/backend/README.md`](src/backend/README.md) |
 | **Documentation Library** | [`docs/README.md`](docs/README.md) |
 
 ---
