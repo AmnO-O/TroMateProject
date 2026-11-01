@@ -1,0 +1,260 @@
+{
+ "count_tokens": {
+  "gemini-3.5-flash-lite": {
+   "meter_real_01": 1263,
+   "meter_real_02": 1263,
+   "meter_real_03": 1265,
+   "meter_real_04": 1292,
+   "meter_real_05": 1249,
+   "meter_real_06": 1274,
+   "meter_real_07": 1274,
+   "meter_real_08": 1241,
+   "meter_real_09": 1274,
+   "meter_real_10": 1249,
+   "meter_real_11": 1263,
+   "meter_real_12": 1263,
+   "meter_real_13": 1249,
+   "meter_real_14": 1249,
+   "meter_real_15": 1263,
+   "meter_real_16": 1263,
+   "meter_real_17": 1263,
+   "meter_real_18": 1249,
+   "meter_real_19": 1249,
+   "receipt_real_01": 1249,
+   "receipt_real_02": 1249,
+   "receipt_real_03": 1249,
+   "receipt_real_04": 1285,
+   "receipt_real_05": 1249,
+   "receipt_real_06": 1289,
+   "receipt_real_07": 1270,
+   "receipt_real_08": 1241,
+   "receipt_real_09": 1249,
+   "receipt_real_10": 1292,
+   "receipt_real_11": 1277,
+   "receipt_real_12": 1249,
+   "bill_real_01": 1270,
+   "bill_real_02": 1249,
+   "bill_real_03": 1249,
+   "bill_real_04": 1249
+  },
+  "gemini-3.5-flash": {
+   "meter_real_01": 1263,
+   "meter_real_02": 1263,
+   "meter_real_03": 1265,
+   "meter_real_04": 1292,
+   "meter_real_05": 1249,
+   "meter_real_06": 1274,
+   "meter_real_07": 1274,
+   "meter_real_08": 1241,
+   "meter_real_09": 1274,
+   "meter_real_10": 1249,
+   "meter_real_11": 1263,
+   "meter_real_12": 1263,
+   "meter_real_13": 1249,
+   "meter_real_14": 1249,
+   "meter_real_15": 1263,
+   "meter_real_16": 1263,
+   "meter_real_17": 1263,
+   "meter_real_18": 1249,
+   "meter_real_19": 1249,
+   "receipt_real_01": 1249,
+   "receipt_real_02": 1249,
+   "receipt_real_03": 1249,
+   "receipt_real_04": 1285,
+   "receipt_real_05": 1249,
+   "receipt_real_06": 1289,
+   "receipt_real_07": 1270,
+   "receipt_real_08": 1241,
+   "receipt_real_09": 1249,
+   "receipt_real_10": 1292,
+   "receipt_real_11": 1277,
+   "receipt_real_12": 1249,
+   "bill_real_01": 1270,
+   "bill_real_02": 1249,
+   "bill_real_03": 1249,
+   "bill_real_04": 1249
+  }
+ },
+ "sample_replies": [
+  {
+   "id": "meter_real_01",
+   "ms": 5204,
+   "usage": {
+    "promptTokenCount": 1263,
+    "candidatesTokenCount": 49,
+    "totalTokenCount": 1312,
+    "promptTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1078
+     },
+     {
+      "modality": "TEXT",
+      "tokenCount": 185
+     }
+    ],
+    "serviceTier": "standard"
+   }
+  },
+  {
+   "id": "meter_real_03",
+   "ms": 4692,
+   "usage": {
+    "promptTokenCount": 1265,
+    "candidatesTokenCount": 48,
+    "totalTokenCount": 1313,
+    "promptTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1080
+     },
+     {
+      "modality": "TEXT",
+      "tokenCount": 185
+     }
+    ],
+    "serviceTier": "standard"
+   }
+  },
+  {
+   "id": "meter_real_11",
+   "ms": 7321,
+   "usage": {
+    "promptTokenCount": 1263,
+    "candidatesTokenCount": 48,
+    "totalTokenCount": 1311,
+    "promptTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1078
+     },
+     {
+      "modality": "TEXT",
+      "tokenCount": 185
+     }
+    ],
+    "serviceTier": "standard"
+   }
+  },
+  {
+   "id": "meter_real_16",
+   "ms": 5886,
+   "usage": {
+    "promptTokenCount": 1263,
+    "candidatesTokenCount": 50,
+    "totalTokenCount": 1313,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 185
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1078
+     }
+    ],
+    "serviceTier": "standard"
+   }
+  },
+  {
+   "id": "receipt_real_01",
+   "ms": 6436,
+   "usage": {
+    "promptTokenCount": 1249,
+    "candidatesTokenCount": 59,
+    "totalTokenCount": 1308,
+    "promptTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1064
+     },
+     {
+      "modality": "TEXT",
+      "tokenCount": 185
+     }
+    ],
+    "serviceTier": "standard"
+   }
+  },
+  {
+   "id": "receipt_real_08",
+   "ms": 7159,
+   "usage": {
+    "promptTokenCount": 1241,
+    "candidatesTokenCount": 60,
+    "totalTokenCount": 1301,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 185
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1056
+     }
+    ],
+    "serviceTier": "standard"
+   }
+  },
+  {
+   "id": "receipt_real_12",
+   "ms": 16462,
+   "usage": {
+    "promptTokenCount": 1249,
+    "candidatesTokenCount": 60,
+    "totalTokenCount": 1309,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 185
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1064
+     }
+    ],
+    "serviceTier": "standard"
+   }
+  },
+  {
+   "id": "bill_real_01",
+   "ms": 7629,
+   "usage": {
+    "promptTokenCount": 1270,
+    "candidatesTokenCount": 51,
+    "totalTokenCount": 1321,
+    "promptTokensDetails": [
+     {
+      "modality": "TEXT",
+      "tokenCount": 185
+     },
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1085
+     }
+    ],
+    "serviceTier": "standard"
+   }
+  },
+  {
+   "id": "bill_real_02",
+   "ms": 9156,
+   "usage": {
+    "promptTokenCount": 1249,
+    "candidatesTokenCount": 52,
+    "totalTokenCount": 1301,
+    "promptTokensDetails": [
+     {
+      "modality": "IMAGE",
+      "tokenCount": 1064
+     },
+     {
+      "modality": "TEXT",
+      "tokenCount": 185
+     }
+    ],
+    "serviceTier": "standard"
+   }
+  }
+ ]
+}
