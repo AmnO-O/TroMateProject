@@ -1,6 +1,6 @@
 # TroMate — Roommate Expense & Rent Reconciliation Bot
 
-[![Status](https://img.shields.io/badge/Status-Inception%20Phase%20(Sprint%201)-blue.svg)](#status)
+[![Status](https://img.shields.io/badge/Status-Elaboration%20Phase%20(Sprint%202)-blue.svg)](#status)
 ![Course](https://img.shields.io/badge/Course-CS300%20(24A01)-green.svg)
 [![Group](https://img.shields.io/badge/Group-06-orange.svg)](#team)
 [![Platform](https://img.shields.io/badge/Platform-Telegram%20Mini%20App-2CA5E0.svg)](#platform-and-services)
@@ -39,10 +39,10 @@ TroMate lives directly inside your roommate group chat (Telegram Bot + Mini App)
 | **Usage Anomaly Detector** | Flags consumption spikes against a 3-month baseline (possible leaks or faults). |
 | **Debt Simplification** | Solves minimum cash flow on the member graph to cancel circular debts and minimize transfers. |
 | **VietQR Settlement** | EMVCo/NAPAS QR pre-filled with the exact amount and memo; the payee taps *Confirm Received*. |
-| **Polite Meme Reminders** | Auto-mentions unsettled members with a meme after 24 hours. |
+| **Polite Automated Reminders** | Scheduled notifications for unsettled balances with direct VietQR quick-action buttons. |
 | **Monthly Report** | End-of-month infographics: electricity/water, shared meals, average per person and trends. |
-| **Confirmation State Machine** | Expenses start `PENDING` with Agree / Reject / Edit, auto-commit after 60 seconds, and freeze on rejection. |
-| **Mini App / Web UI** | Balance sheets, cash-flow charts, a filterable transaction log, admin edit/delete and group settings. |
+| **Confirmation State Machine** | Expenses start `PENDING` with Agree / Reject / Edit, auto-commit after 5 minutes (opt-out), and freeze on rejection. |
+| **Mini App / Personal Ledger** | Personal ledger, balance sheets, room overview, filterable history log, and group settings. |
 
 ---
 
@@ -61,10 +61,11 @@ flowchart LR
 
 ### Primary User Journeys
 
-1. **Daily Expense:** Message in chat → bot parses → `PENDING` expense broadcast with *Agree / Reject / Edit* → auto-commits after 60 seconds → group ledger.
+1. **Daily Expense:** Message in chat (`/new`) → bot parses → `PENDING` expense broadcast with *Agree / Reject / Edit* → auto-commits after 5 minutes → group ledger.
 2. **Monthly Rent Bill:** Bill photo → OCR extraction → human review/approval → offset advances → minimize debts → per-member VietQR → treasurer confirms receipt.
+3. **Debt Settlement:** Settle balance → generate dynamic VietQR → transfer via mobile banking app → debtor self-reports → recipient confirms.
 
-Detailed user flows and screen inventory are documented in [`docs/analysis-and-design/ui-flows.md`](docs/analysis-and-design/ui-flows.md).
+Detailed user flows and interactive screens are documented in [`pa/PA2-Group06/ui-prototyping/UI_PROTOTYPING.md`](pa/PA2-Group06/ui-prototyping/UI_PROTOTYPING.md).
 
 ---
 
@@ -74,10 +75,10 @@ TroMate is designed as a **zero-install, mobile-first** application utilizing fr
 
 | Component / Service | Technology | Details / Access |
 |---|---|---|
-| **User Interface** | Telegram Bot API + Mini App | Chat bot interface and embedded Web App shell (also usable as a standalone web app) |
-| **Payment Gateway** | VietQR (NAPAS) | Dynamic QR code generation for exact-amount transfers |
-| **Backend & Database** | Python / FastAPI *(spike)* | Mini App API, Telegram webhook adapters, and mock balance data; database TBD |
-| **Secondary Channel** | Zalo API *(Future)* | Potential secondary integration post-MVP |
+| **User Interface** | Telegram Bot API + Mini App (TMA) | Chat bot interface and embedded Web App shell built with React / Tailwind CSS |
+| **Payment Gateway** | VietQR (NAPAS 247) | Dynamic QR code generation with pre-filled amount and structured transfer syntax |
+| **Backend & Database** | Python / FastAPI, Redis, PostgreSQL | Webhook adapters, state machine, group locks, and ledger storage |
+| **Vision & OCR** | Google Cloud Vision / Tesseract | Bill invoice text extraction and meter scanning |
 
 ---
 
@@ -85,17 +86,24 @@ TroMate is designed as a **zero-install, mobile-first** application utilizing fr
 
 ```text
 TroMateProject/
-├── docs/                 # Living project documentation by discipline
-│   ├── analysis-and-design/
-│   ├── management/
-│   ├── requirements/
-│   └── test/
-├── pa/                   # Graded course practical assignments
-│   ├── PA0/              # Project proposal & tool index
-│   └── PA1-Group06/      # PA1 submission package (folder structure only)
-├── src/                  # Application source code
-│   └── backend/          # FastAPI Mini App backend and bot-library spike
-└── README.md             # Project overview & guide
+├── docs/                             # Living project documentation library
+│   ├── analysis-and-design/          # UI design system, technical spikes, use case diagrams
+│   ├── management/                   # SDP, MVP plan, weekly reports
+│   ├── requirements/                 # Living Vision document
+│   └── test/                         # Test plans & cases (planned)
+├── pa/                               # Graded course practical assignments
+│   ├── PA0/                          # Project proposal & tool index
+│   ├── PA1-Group06/                  # PA1 submission package (frozen)
+│   └── PA2-Group06/                  # PA2 submission package
+│       ├── project-execution-and-tracking/
+│       ├── project-plan/             # TroMate_SDP_v2.0.docx
+│       ├── ui-prototyping/           # UI_PROTOTYPING.md & flow diagrams
+│       ├── use-case-specification/   # usecase-specification.docx & diagram.png
+│       ├── vision/                   # rup_vision_sp_v2.9.docx
+│       └── weekly-reports/           # weekly-report-03.docx & weekly-report-04.docx
+├── src/                              # Application source code
+│   └── backend/                      # FastAPI Mini App backend and bot skeleton
+└── README.md                         # Project overview & guide
 ```
 
 ---
@@ -106,27 +114,35 @@ TroMateProject/
 |---|---|
 | **Project Proposal (PA0)** | [`pa/PA0/project-proposal.md`](pa/PA0/project-proposal.md) |
 | **Tools & Infrastructure Index (PA0)** | [`pa/PA0/tools.md`](pa/PA0/tools.md) |
-| **Software Development Plan** | [`docs/management/software-development-plan.md`](docs/management/software-development-plan.md) |
-| **Task Assignment** | [`docs/management/task-assignment.md`](docs/management/task-assignment.md) |
-| **Vision Document** | [`docs/requirements/vision.md`](docs/requirements/vision.md) |
-| **UI Flows & Screen Inventory** | [`docs/analysis-and-design/ui-flows.md`](docs/analysis-and-design/ui-flows.md) |
-| **UI Prompts & Wireframes** | [`docs/analysis-and-design/ui-prompts.md`](docs/analysis-and-design/ui-prompts.md) |
+| **Software Development Plan (v2.0)** | [`pa/PA2-Group06/project-plan/TroMate_SDP_v2.0.docx`](pa/PA2-Group06/project-plan/TroMate_SDP_v2.0.docx) |
+| **Vision Document (v2.0)** | [`pa/PA2-Group06/vision/rup_vision_sp_v2.9.docx`](pa/PA2-Group06/vision/rup_vision_sp_v2.9.docx) |
+| **Use Case Specification (12 UCs)** | [`pa/PA2-Group06/use-case-specification/usecase-specification.docx`](pa/PA2-Group06/use-case-specification/usecase-specification.docx) |
+| **Use Case Diagram** | [`pa/PA2-Group06/use-case-specification/diagram.png`](pa/PA2-Group06/use-case-specification/diagram.png) |
+| **UI Prototyping Specification** | [`pa/PA2-Group06/ui-prototyping/UI_PROTOTYPING.md`](pa/PA2-Group06/ui-prototyping/UI_PROTOTYPING.md) |
+| **UI Design System** | [`docs/analysis-and-design/TroMate_UI_Design_System.md`](docs/analysis-and-design/TroMate_UI_Design_System.md) |
+| **Technical Spikes: OCR Evaluation** | [`docs/analysis-and-design/TECHNICAL_SPIKES_SCRUM-99_OCR.md`](docs/analysis-and-design/TECHNICAL_SPIKES_SCRUM-99_OCR.md) |
+| **Technical Spikes: E-Wallet Integration** | [`docs/analysis-and-design/ewallet.md`](docs/analysis-and-design/ewallet.md) |
 | **Telegram Bot Library Evaluation** | [`docs/analysis-and-design/telegram-bot-library-evaluation.md`](docs/analysis-and-design/telegram-bot-library-evaluation.md) |
-| **Backend Spike README** | [`src/backend/README.md`](src/backend/README.md) |
-| **Documentation Library** | [`docs/README.md`](docs/README.md) |
+| **Weekly Reports (Week 1 – 4)** | [`docs/management/weekly-reports/`](docs/management/weekly-reports/) |
+| **Documentation Library Index** | [`docs/README.md`](docs/README.md) |
 
 ---
 
 ## Status
 
-**Current Phase:** `Inception Phase (Sprint 1)`
+**Current Phase:** `Elaboration Phase (Sprint 2 / PA2 Completed)`
 
 - [x] Project Proposal & Tool Setup (PA0)
 - [x] Problem Validation & User Survey
-- [x] Software Development Plan & Task Assignment (PA1)
-- [x] Vision Document & UI Wireframing (PA1)
-- [ ] Elaboration Phase — Architecture & Spikes (Sprint 2–3)
-- [ ] Construction Phase — Development & Testing (Sprint 4–5)
+- [x] Baseline Software Development Plan & Vision Document (PA1)
+- [x] **Revised SDP v2.0 & Vision Document v2.0 (PA2)**
+- [x] **Use Case Model & 12 Detailed Use Case Specifications (PA2)**
+- [x] **Interactive UI Prototyping & Flow Diagrams (PA2)**
+- [x] **Technical Spikes: OCR Evaluation, Mini App Auth, VietQR, & E-Wallet Research (PA2)**
+- [x] **Weekly Reports 03 & 04 (PA2)**
+- [ ] Elaboration Phase — Architecture (SAD), Test Plan, & v0.1 Prototype (Sprint 3 / PA3)
+- [ ] Construction Phase — Development & Beta Pilot (Sprint 4 / PA4)
+- [ ] Transition Phase — Final Release & Acceptance (Sprint 5 / PA5)
 
 ---
 
@@ -138,7 +154,7 @@ TroMateProject/
 |:---:|:---|:---:|:---|
 | `24125008` | Nguyễn Gia Hào | [@hafonium](https://github.com/hafonium) | **Technical Lead** (Architecture, ledger, debt engine) |
 | `24125010` | Cao Quảng Hưng | [@caoquanghung](https://github.com/caoquanghung) | **QA / Tester** (Test plan, test cases, defect reporting) |
-| `24125013` | Trịnh Võ Nam Kiệt | [@tvnkiet](https://github.com/tvnkiet) | **Scrum Master / Project Lead** (Process, Jira, plans) |
+| `24125013` | Trịnh Võ Nam Kiệt | [@namkiet](https://github.com/namkiet) | **Scrum Master / Project Lead** (Process, Jira, plans) |
 | `24125015` | Phạm Hữu Nam | [@AmnO-O](https://github.com/AmnO-O) | **UI/UX Designer** (User flows, wireframes, design system) |
 | `24125020` | Huỳnh Chí Tôn | [@hikito-otikih](https://github.com/hikito-otikih) | **Product Owner / Business Analyst** (Requirements, user stories) |
 

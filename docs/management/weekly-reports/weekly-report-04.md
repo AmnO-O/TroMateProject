@@ -20,15 +20,15 @@
 
 | STT | Description | Due Date | Responsibility | %Complete |
 |---|---|---|---|---|
-| 1 | Revise Vision Document (SCRUM-95) | 25/10 | HCTon | 100% |
-| 2 | Revise Project Plan (SCRUM-94) | 25/10 | NGHao | 100% |
+| 1 | Revise Vision Document (SCRUM-95) | 27/10 | HCTon | 100% |
+| 2 | Revise Project Plan (SCRUM-94) | 27/10 | NGHao | 100% |
 | 3 | Create Use Case Diagrams (SCRUM-103) | 27/10 | HCTon | 100% |
 | 4 | Initialize Mini App (SCRUM-102) | 28/10 | PHNam | 100% |
 | 5 | Evaluate OCR (SCRUM-99) | 28/10 | NGHao | 100% |
 | 6 | Integrate e-wallet (SCRUM-101) | 28/10 | CQHung | 100% |
 | 7 | Research QR Debt Payments (SCRUM-110) | 28/10 | TVNKiet | 100% |
-| 8 | Create Use Case Specifications (SCRUM-104) | 28/10 | CQHung | 100% |
-| 9 | Update UI Prototyping (SCRUM-97) | 30/10 | TVNKiet, PHNam | 100% |
+| 8 | Create Use Case Specifications (SCRUM-104) | 30/10 | CQHung | 100% |
+| 9 | Update UI Prototyping (SCRUM-97) | 31/10 | TVNKiet, PHNam | 100% |
 | 10 | Fill in the Weekly Report (Week 3 & Week 4) (SCRUM-106) | 01/11 | PHNam | 100% |
 | 11 | Package and Submit PA2 Deliverables (SCRUM-105) | 01/11 | PHNam, all | 100% |
 
