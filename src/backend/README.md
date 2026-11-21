@@ -4,9 +4,10 @@ FastAPI backend for the TroMate Telegram Mini App, plus interchangeable
 `python-telegram-bot` / `aiogram` / `pyTelegramBotAPI` adapters used to choose
 the bot library.
 
-This is the Sprint 2 implementation of the **Initialize Mini App** task. It is
-deliberately a spike: balances are mock data, there is no database, and the
-Mini App page is a diagnostic shell rather than the final UI.
+It started as the Sprint 2 **Initialize Mini App** spike (mock balances,
+diagnostic Mini App page). Sprint 4 adds the PostgreSQL (Neon) storage layer:
+SQLAlchemy 2.0 async models, Alembic migrations, a Unit of Work, repositories
+and a services layer (SCRUM-122). See [Database](#database).
 
 ## What is included
 
@@ -25,40 +26,39 @@ Mini App page is a diagnostic shell rather than the final UI.
 
 ## Requirements
 
-- Python 3.12+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) (manages Python 3.12,
+  the virtual environment and dependencies)
+- A PostgreSQL database: a [Neon](https://neon.tech) project, or a local PostgreSQL 16
 - A Telegram test bot from [@BotFather](https://t.me/BotFather)
 - An HTTPS tunnel for local webhook testing (Cloudflare Quick Tunnel or ngrok)
 - A Telegram client for Mini App testing
 
 ## Setup
 
-From this directory (`src/backend`), in PowerShell:
+From this directory (`src/backend`):
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -e ".[dev,ptb,aiogram,telebot]"
+```bash
+uv sync --all-extras   # creates .venv with Python 3.12, installs deps + bot libraries + dev tools
 ```
 
-If PowerShell blocks activation:
+`uv sync` reads `pyproject.toml` and the committed `uv.lock`, so everyone gets the
+same versions. Run any command inside the environment with `uv run`, no activation
+needed (`uv run pytest`, `uv run alembic ...`, `uv run uvicorn ...`).
 
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-.\.venv\Scripts\Activate.ps1
+Managing dependencies:
+
+```bash
+uv add <package>          # runtime dependency (updates pyproject.toml and uv.lock)
+uv add --dev <package>    # dev-only tool (dependency group "dev")
+uv lock --upgrade-package <package>
 ```
 
-Without activation:
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -e ".[dev,ptb,aiogram,telebot]"
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --port 8000
-```
+Commit both `pyproject.toml` and `uv.lock` after changing dependencies.
 
 ## Configuration
 
-```powershell
-Copy-Item .env.example .env
+```bash
+cp .env.example .env          # PowerShell: Copy-Item .env.example .env
 ```
 
 Fill in:
@@ -71,6 +71,8 @@ Fill in:
 | `TELEGRAM_WEBHOOK_SECRET` | 16–256 characters from `A-Za-z0-9_-` |
 | `AUTO_SET_WEBHOOK` | `true` to register the webhook on startup |
 | `MINIAPP_INITDATA_MAX_AGE_SECONDS` | Accepted `initData` age; default 3600 |
+| `DATABASE_URL` | Neon connection string (see [Database](#database)) |
+| `GEMINI_API_KEY` | Google Gemini key for the AI Extraction Adapter; empty = VND parser fallback |
 
 `.env` is ignored by Git. Only `.env.example` is committed.
 
@@ -78,8 +80,8 @@ Fill in:
 
 Start the API:
 
-```powershell
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```bash
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Check:
@@ -98,16 +100,16 @@ cloudflared tunnel --url http://127.0.0.1:8000
 Copy the printed `https://<random>.trycloudflare.com` into `PUBLIC_BASE_URL`,
 restart the API if `AUTO_SET_WEBHOOK=true`, then verify:
 
-```powershell
-python scripts/manage_webhook.py info
+```bash
+uv run python scripts/manage_webhook.py info
 ```
 
 Manual webhook management:
 
-```powershell
-python scripts/manage_webhook.py set --drop-pending
-python scripts/manage_webhook.py info
-python scripts/manage_webhook.py delete --drop-pending
+```bash
+uv run python scripts/manage_webhook.py set --drop-pending
+uv run python scripts/manage_webhook.py info
+uv run python scripts/manage_webhook.py delete --drop-pending
 ```
 
 ## Switching bot libraries
@@ -178,20 +180,21 @@ not crash the webhook process.
 
 ## Tests and lint
 
-```powershell
-pytest
-ruff check .
+```bash
+uv run pytest
+uv run ruff check .
 ```
 
 The tests use a fake bot engine, so they do not need a real Telegram token or
-network access.
+network access. Database integration tests (`tests/db/`) are skipped unless
+`TEST_DATABASE_URL` is set; see [Database tests](#database-tests).
 
 Generate signed test data for manual API checks:
 
-```powershell
-python scripts/make_test_init_data.py
-python scripts/make_test_init_data.py --auth-age-seconds 7200   # expired
-python scripts/make_test_init_data.py --tamper                  # bad hash
+```bash
+uv run python scripts/make_test_init_data.py
+uv run python scripts/make_test_init_data.py --auth-age-seconds 7200   # expired
+uv run python scripts/make_test_init_data.py --tamper                  # bad hash
 ```
 
 > The generator uses the configured bot token. It is for local testing only;
@@ -200,7 +203,7 @@ python scripts/make_test_init_data.py --tamper                  # bad hash
 Example PowerShell check:
 
 ```powershell
-$init = python scripts/make_test_init_data.py
+$init = uv run python scripts/make_test_init_data.py
 Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/miniapp/session `
   -ContentType "application/json" `
   -Body (@{ init_data = $init } | ConvertTo-Json)
@@ -208,27 +211,140 @@ Invoke-RestMethod -Method Post http://127.0.0.1:8000/api/miniapp/session `
 
 ## Architecture
 
+Layered as in the SCRUM-116 component diagram (Figure 2): routers call services,
+services call repositories (through a Unit of Work) and adapters, repositories
+work through the ORM models.
+
 ```text
 app/
 ├── main.py                 # create_app, lifespan, routes
-├── api/
-│   ├── health.py
-│   ├── webhook.py          # secret check + update handoff
-│   └── mini_app.py         # session + mock balance API
-├── bots/
-│   ├── base.py             # BotEngine interface + TaskTracker
-│   ├── factory.py          # lazy adapter selection
-│   ├── common.py           # shared bot text
-│   ├── ptb_bot.py
-│   ├── aiogram_bot.py
-│   └── telebot_bot.py
-├── core/
-│   ├── config.py
-│   ├── init_data.py        # security-critical validator
-│   ├── logging.py
-│   └── sample_data.py
-└── web/
-    └── miniapp.html        # diagnostic Mini App
+├── api/                    # Routers: FastAPI endpoints (health, webhook, Mini App)
+├── bots/                   # Routers: Telegram bot adapters (BotEngine interface)
+├── services/               # Business rules, one class per use-case area
+│   ├── errors.py           # NotFound / PermissionDenied / Conflict (409) / Validation
+│   └── room_service.py     # rooms, members, default categories
+├── repositories/           # Persistence only: queries and writes, never commit
+│   ├── room_repository.py      # users, rooms, room_members, categories
+│   ├── expense_repository.py   # expenses, expense_splits, expense_approvals, attachments
+│   └── ledger_repository.py    # ledger_entries (append-only)
+├── db/                     # ORM models and Unit of Work
+│   ├── base.py             # DeclarativeBase, naming convention, UUID/created_at mixins
+│   ├── enums.py            # statuses and other VARCHAR+CHECK enumerations
+│   ├── session.py          # async engine (asyncpg), Neon URL handling
+│   ├── unit_of_work.py     # one AsyncSession per use case, commit once
+│   └── models/             # one *_model.py per table
+├── core/                   # config, initData validator, logging
+└── web/miniapp.html        # diagnostic Mini App
+alembic/                    # migrations (alembic/versions/*.py)
+```
+
+| Layer | May call | Must not |
+|---|---|---|
+| Routers (`api/`, `bots/`) | Services | Run SQL or open sessions |
+| Services | `UnitOfWork` repositories, adapters, other services | Import FastAPI/aiogram, touch `AsyncSession` |
+| Repositories | ORM models, the session | Hold business rules, commit |
+
+## Database
+
+PostgreSQL on Neon, SQLAlchemy 2.0 (async) with `asyncpg`, Alembic migrations.
+
+### Connect to Neon
+
+1. In the Neon Console open the project, click **Connect**, and copy the
+   connection string. For migrations prefer the **direct** endpoint (host without
+   `-pooler`).
+2. Put it in `.env` as is:
+
+   ```dotenv
+   DATABASE_URL=postgresql://<user>:<password>@<endpoint>.<region>.aws.neon.tech/neondb?sslmode=require
+   ```
+
+   `app/db/session.py` switches the scheme to `postgresql+asyncpg`, turns
+   `sslmode=require` into asyncpg's `ssl=require` and drops `channel_binding`.
+   Pooled (`-pooler`) hosts automatically get PgBouncer-safe settings.
+3. Check the connection and apply the migrations:
+
+   ```bash
+   uv run python scripts/check_db.py
+   uv run alembic upgrade head
+   uv run python scripts/check_db.py   # now shows the revision
+   ```
+
+### Migrations
+
+```bash
+uv run alembic upgrade head                          # apply all migrations
+uv run alembic downgrade -1                          # undo the last one
+uv run alembic current                               # applied revision
+uv run alembic revision --autogenerate -m "add x"    # after changing app/db/models
+uv run alembic check                                 # fail if models and DB differ
+uv run alembic upgrade head --sql                    # print SQL without running it
+```
+
+Always read an autogenerated revision before committing it: Alembic does not
+detect CHECK-constraint or enum value changes, and cyclic foreign keys need
+`op.create_foreign_key` after both tables exist (see the initial revision).
+New revision files are formatted with ruff automatically.
+
+### Unit of Work and repositories
+
+```python
+from app.db.unit_of_work import UnitOfWork
+
+async with UnitOfWork() as uow:                      # one AsyncSession
+    expense = await uow.expenses.get(expense_id, for_update=True)
+    ok = await uow.expenses.update_if_version(
+        expense.id, client_version,                  # optimistic lock
+        expected_statuses=[ExpenseStatus.PENDING],
+        status=ExpenseStatus.CONFIRMED, confirmed_at=now,
+    )
+    if not ok:
+        raise ConflictError("Expense was changed by someone else")
+    await uow.ledger.append_many(entries)
+    await uow.commit()                               # status + ledger in one transaction
+# leaving the block without commit() discards the work
+```
+
+- `Expense.version` is the optimistic-locking counter. Change an expense only
+  through `ExpenseRepository.update_if_version`, which runs
+  `UPDATE ... WHERE id = :id AND version = :v` and increments `version`; `False`
+  means stale data (answer 409).
+- `LedgerRepository` is append-only (no update/delete methods). Correct a balance
+  with a compensating entry.
+- Services take a `UnitOfWork` factory (`RoomService(uow_factory)`), so tests can
+  pass one bound to a test database.
+
+### Schema
+
+The tables follow the SCRUM-117 ERD
+([`docs/analysis-and-design/database-schema-erd.md`](../../docs/analysis-and-design/database-schema-erd.md)),
+with the SCRUM-122 table names and corrections from the Use-case Specification v2.0:
+
+| Change | Reason |
+|---|---|
+| `members` → `room_members`, `expense_shares` → `expense_splits`, `expense_votes` → `expense_approvals` | SCRUM-122 naming |
+| Expense status `PENDING / DISPUTED / CONFIRMED / CANCELLED` (ERD had `REJECTED`) | BR01, BR04: a rejection disputes the expense; the room's `DECLINE` default action cancels it |
+| `expenses.review_window_minutes`, `expenses.auto_resolved` | UC06 records that an expense was auto-resolved and which window applied |
+| `expense_approvals.expense_version`, `reason_code`, `reason_note` | UC05-AF03 clears approvals of older versions; UC05-AF02 stores the rejection reason |
+| `ledger_entries.effective_at` | Entries of an overdue expense are dated at its review deadline; `created_at` stays the write time |
+| `expense_splits.share_amount > 0` (ERD `>= 0`) | BR05 |
+| `categories.name` 2–30 chars, unique per room ignoring case; 7 default categories seeded | BR06 |
+| `rooms.review_timeout_minutes IN (5, 15, 30, 60, 360, 720, 1440)` | BR03 |
+| At most one `ROOM_REP` per room (partial unique index); the first member becomes Room Rep | BR09 |
+| `webhook_state` singleton row seeded by the migration | Telegram `update_id` deduplication |
+
+Amounts are whole VND in `BIGINT`. A `PENDING` expense with `review_deadline IS NULL`
+needs manual approval (photo, meter and rent expenses, BR02).
+
+### Database tests
+
+`tests/db/` runs the migrations and exercises the repositories against a real
+PostgreSQL. Point `TEST_DATABASE_URL` at a **disposable** database: each run drops
+and recreates its `public` schema. A Neon branch or a local PostgreSQL works; the
+suite refuses to run if it points at `DATABASE_URL`.
+
+```bash
+TEST_DATABASE_URL=postgresql://<user>:<password>@<host>/<test_db> uv run pytest tests/db
 ```
 
 ## Telegram limits to remember
@@ -255,4 +371,8 @@ See the full evaluation report:
 | Mini App shows “Telegram context missing” | Open from the inline button/direct link, not a browser tab |
 | Group Mini App link opens the bot chat | Configure BotFather Main Mini App with the current tunnel URL |
 | Changes not visible | Telegram caches Mini App pages; add `?v=N` to the BotFather URL |
-| `pytest` cannot import `app` | Run from `src/backend` with the venv active |
+| `pytest` cannot import `app` | Run from `src/backend` with `uv run pytest` (after `uv sync --all-extras`) |
+| `DatabaseNotConfiguredError` | `DATABASE_URL` is empty in `.env` |
+| `connect() got an unexpected keyword argument 'sslmode'` | Use the URL through `app.db.session` (it rewrites `sslmode`); do not pass it to `create_async_engine` directly |
+| `prepared statement "__asyncpg_stmt_..." already exists` | Pooled Neon host without `-pooler` in the name: use the direct endpoint |
+| `alembic` connects to the wrong database | Alembic reads `DATABASE_URL`; override with `uv run alembic -x database_url=... upgrade head` |
