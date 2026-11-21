@@ -12,6 +12,7 @@ from app.bots.base import BotEngine
 from app.bots.factory import create_engine
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
+from app.db.session import dispose_engine
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -40,6 +41,7 @@ def create_app(
             yield
         finally:
             await bot_engine.shutdown()
+            await dispose_engine()
 
     app = FastAPI(
         title="TroMate Backend",

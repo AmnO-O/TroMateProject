@@ -11,15 +11,38 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
-class Settings(BaseSettings):
-    """Application settings loaded from environment variables and ``.env``."""
+ENV_CONFIG = SettingsConfigDict(
+    env_file=BACKEND_DIR / ".env",
+    env_file_encoding="utf-8",
+    extra="ignore",
+    case_sensitive=False,
+)
 
-    model_config = SettingsConfigDict(
-        env_file=BACKEND_DIR / ".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-        case_sensitive=False,
-    )
+
+class DatabaseSettings(BaseSettings):
+    """Database settings only.
+
+    Alembic and ``app.db`` load this class instead of :class:`Settings`, so running a
+    migration does not require Telegram credentials.
+    """
+
+    model_config = ENV_CONFIG
+
+    # Neon connection string, e.g. postgresql://user:pass@ep-xxx.region.aws.neon.tech/neondb?sslmode=require
+    # Plain ``postgresql://`` URLs are converted to the asyncpg driver in ``app.db.session``.
+    database_url: str = ""
+    database_echo: bool = False
+    database_pool_size: int = Field(default=5, gt=0)
+    database_max_overflow: int = Field(default=5, ge=0)
+
+    @field_validator("database_url")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        return value.strip()
+
+
+class Settings(DatabaseSettings):
+    """Application settings loaded from environment variables and ``.env``."""
 
     app_env: Literal["local", "test", "production"] = "local"
     log_level: str = "INFO"
@@ -37,6 +60,9 @@ class Settings(BaseSettings):
     miniapp_initdata_max_age_seconds: int = Field(default=3600, gt=0)
     miniapp_initdata_max_length: int = Field(default=8192, gt=0)
     miniapp_max_body_bytes: int = Field(default=1_048_576, gt=0)
+
+    # Google Gemini (AI Extraction Adapter). Empty means the rule-based VND parser fallback is used.
+    gemini_api_key: str = ""
 
     @field_validator("log_level")
     @classmethod
@@ -102,3 +128,10 @@ def get_settings() -> Settings:
     """Return the process-wide settings instance."""
 
     return Settings()
+
+
+@lru_cache(maxsize=1)
+def get_database_settings() -> DatabaseSettings:
+    """Return the process-wide database settings instance."""
+
+    return DatabaseSettings()

@@ -1,0 +1,80 @@
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Index, Text, false, text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin, str_enum
+from app.db.enums import ExpenseStatus, SourceType, SplitType
+
+if TYPE_CHECKING:
+    from app.db.models.expense_approval_model import ExpenseApproval
+    from app.db.models.expense_split_model import ExpenseSplit
+
+
+class Expense(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    """A shared expense and its confirmation state (see ``ExpenseStatus``).
+
+    ``version`` is the optimistic-locking counter: every state change or edit goes through
+    ``ExpenseRepository.update_if_version`` (``UPDATE ... WHERE id = :id AND version = :v``),
+    so a stale vote or edit updates zero rows and the service answers 409 Conflict.
+    """
+
+    __tablename__ = "expenses"
+    __table_args__ = (
+        CheckConstraint("total_amount > 0", name="total_amount_positive"),
+        CheckConstraint("version >= 1", name="version_positive"),
+        CheckConstraint(
+            "review_window_minutes IS NULL OR review_window_minutes > 0",
+            name="review_window_positive",
+        ),
+        CheckConstraint(
+            "(status = 'CONFIRMED') = (confirmed_at IS NOT NULL)",
+            name="confirmed_at_matches_status",
+        ),
+        # Lazy resolve_overdue(room): PENDING expenses whose review_deadline has passed.
+        Index("ix_expenses_room_id_status_review_deadline", "room_id", "status", "review_deadline"),
+    )
+
+    room_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("rooms.id", ondelete="CASCADE"))
+    category_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("categories.id", ondelete="RESTRICT"))
+    created_by_member_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("room_members.id", ondelete="RESTRICT")
+    )
+    payer_member_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("room_members.id", ondelete="RESTRICT")
+    )
+    description: Mapped[str] = mapped_column(Text)
+    total_amount: Mapped[int] = mapped_column(BigInteger)  # whole VND
+    split_type: Mapped[SplitType] = mapped_column(str_enum(SplitType, length=20))
+    status: Mapped[ExpenseStatus] = mapped_column(
+        str_enum(ExpenseStatus), server_default=text("'PENDING'"), default=ExpenseStatus.PENDING
+    )
+    source_type: Mapped[SourceType] = mapped_column(str_enum(SourceType))
+    receipt_attachment_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("attachments.id", ondelete="SET NULL")
+    )
+    # NULL while PENDING means manual approval only (BR02: photo, meter and rent expenses).
+    review_deadline: Mapped[datetime | None]
+    # Room window (minutes) used to compute review_deadline for this version (UC06).
+    review_window_minutes: Mapped[int | None]
+    # True when the room's default action resolved the expense at its deadline (UC06).
+    auto_resolved: Mapped[bool] = mapped_column(server_default=false(), default=False)
+    version: Mapped[int] = mapped_column(server_default=text("1"), default=1)
+    confirmed_at: Mapped[datetime | None]
+
+    splits: Mapped[list[ExpenseSplit]] = relationship(
+        back_populates="expense",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    approvals: Mapped[list[ExpenseApproval]] = relationship(
+        back_populates="expense",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

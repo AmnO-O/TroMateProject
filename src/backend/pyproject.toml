@@ -5,24 +5,22 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tromate-backend"
 version = "0.1.0"
-description = "TroMate Telegram Mini App backend and Telegram bot library spike"
+description = "TroMate Telegram bot and Mini App backend (FastAPI, aiogram, SQLAlchemy, PostgreSQL)"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi==0.159.1",
   "uvicorn[standard]==0.54.0",
   "pydantic-settings==2.16.1",
   "httpx==0.28.1",
+  "sqlalchemy[asyncio]>=2.0.40",
+  "asyncpg>=0.30",
+  "alembic>=1.16",
 ]
 
 [project.optional-dependencies]
 ptb = ["python-telegram-bot==22.8"]
 aiogram = ["aiogram==3.31.0"]
 telebot = ["pyTelegramBotAPI==4.37.1"]
-dev = [
-  "pytest>=8.0",
-  "pytest-asyncio>=0.24",
-  "ruff>=0.8",
-]
 all = [
   "python-telegram-bot==22.8",
   "aiogram==3.31.0",
@@ -45,4 +43,12 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
