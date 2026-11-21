@@ -36,13 +36,22 @@ mode, bot permissions, webhook delivery, and rate limits.
 
 **Related items:**
 
-- Task description: [`src/description.md`](description.md)
 - Epic / feature: Initialize Mini App — Sprint 2
 - Technical report:
-  [`docs/analysis-and-design/telegram-bot-library-evaluation.md`](../docs/analysis-and-design/telegram-bot-library-evaluation.md)
-- Implementation: `src/backend/`
+  [`telegram-bot-library-evaluation.md`](telegram-bot-library-evaluation.md)
+- Implementation: [`src/backend/`](../../src/backend/)
 - Pull request: [#5](https://github.com/AmnO-O/TroMateProject/pull/5) (draft)
 - Jira issue: not assigned; branch and PR use `feat/init-mini-app-backend`
+
+### 1.1 Task Objective & Scope (merged from task description)
+
+- **Objective:** Set up the TroMate Mini App backend with Python and FastAPI, and test Telegram bot libraries/SDKs to pick one for development.
+- **Scope:**
+  - Set up Python/FastAPI project (virtual env, dependencies, `.env` config, folder structure).
+  - Add a webhook endpoint for Telegram bot updates and a basic API for the Mini App.
+  - Build a small proof of concept with each candidate library (`python-telegram-bot`, `aiogram`, `pyTelegramBotAPI`) and test webhook handling, async support, commands (`/start`, `/balance`), inline buttons, and Mini App launch.
+  - Validate Mini App `initData` on the backend using Telegram's official HMAC-SHA256 method.
+  - Document Telegram limits (group privacy mode, bot permissions, webhook limits), library comparison, setup steps, and recommendation.
 
 ---
 
@@ -129,8 +138,6 @@ Legend: `☑` met, `◐` partially met, `☐` not met.
 | AC7 | Code pushed to GitHub and reviewed | PR reviewed and accepted | ◐ Pushed to draft PR #5; review not complete |
 
 ### 5.1 Definition of Done check
-
-From [`src/description.md`](description.md):
 
 | Definition of Done item | Status | Evidence / blocker |
 |---|---|---|
@@ -243,11 +250,9 @@ final E2E evidence, adapter cleanup, and session hardening.
 
 | Ref | Description | URL / Path |
 |---|---|---|
-| R1 | Task description and Definition of Done | [`src/description.md`](description.md) |
-| R2 | Technical report: limits, comparison, tests, recommendation | [`docs/analysis-and-design/telegram-bot-library-evaluation.md`](../docs/analysis-and-design/telegram-bot-library-evaluation.md) |
-| R3 | Backend setup and run guide | [`src/backend/README.md`](backend/README.md) |
-| R4 | Implementation plan | [`plan.md`](../plan.md) |
-| R5 | Pull request #5 | <https://github.com/AmnO-O/TroMateProject/pull/5> |
+| R1 | Technical report: limits, comparison, tests, recommendation | [`telegram-bot-library-evaluation.md`](telegram-bot-library-evaluation.md) |
+| R2 | Backend setup and run guide | [`src/backend/README.md`](../../src/backend/README.md) |
+| R3 | Pull request #5 | <https://github.com/AmnO-O/TroMateProject/pull/5> |
 | R6 | Telegram `setWebhook` | <https://core.telegram.org/bots/api#setwebhook> |
 | R7 | Telegram `getWebhookInfo` | <https://core.telegram.org/bots/api#getwebhookinfo> |
 | R8 | Telegram webhook guide | <https://core.telegram.org/bots/webhooks> |

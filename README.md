@@ -1,6 +1,6 @@
 # TroMate — Roommate Expense & Rent Reconciliation Bot
 
-[![Status](https://img.shields.io/badge/Status-Elaboration%20Phase%20(Sprint%202)-blue.svg)](#status)
+[![Status](https://img.shields.io/badge/Status-Construction%20Phase%20(Sprint%204%20%2F%20PA4)-blue.svg)](#status)
 ![Course](https://img.shields.io/badge/Course-CS300%20(24A01)-green.svg)
 [![Group](https://img.shields.io/badge/Group-06-orange.svg)](#team)
 [![Platform](https://img.shields.io/badge/Platform-Telegram%20Mini%20App-2CA5E0.svg)](#platform-and-services)
@@ -92,17 +92,20 @@ TroMateProject/
 │   ├── requirements/                 # Living Vision document
 │   └── test/                         # Test plans & cases (planned)
 ├── pa/                               # Graded course practical assignments
-│   ├── PA0/                          # Project proposal & tool index
+│   ├── PA0/                          # Project proposal, tool index & group setup
 │   ├── PA1-Group06/                  # PA1 submission package (frozen)
-│   └── PA2-Group06/                  # PA2 submission package
+│   ├── PA2-Group06/                  # PA2 submission package (frozen)
+│   └── PA3-Group06/                  # PA3 submission package (frozen)
+│       ├── component-diagram/        # component-diagram.pdf
+│       ├── db-design/                # database-schema-erd.md
 │       ├── project-execution-and-tracking/
-│       ├── project-plan/             # TroMate_SDP_v2.0.docx
-│       ├── ui-prototyping/           # UI_PROTOTYPING.md & flow diagrams
-│       ├── use-case-specification/   # usecase-specification.docx & diagram.png
-│       ├── vision/                   # rup_vision_sp_v2.9.docx
-│       └── weekly-reports/           # weekly-report-03.docx & weekly-report-04.docx
+│       ├── system-context/           # system-context-description.docx
+│       ├── ui-design/                # UI Design.docx
+│       ├── use-case-specification/   # usecase-specification-v2.0.docx
+│       └── weekly-reports/           # weekly-report-05.docx & weekly-report-06.docx
 ├── src/                              # Application source code
-│   └── backend/                      # FastAPI Mini App backend and bot skeleton
+│   ├── backend/                      # FastAPI Mini App backend and bot skeleton
+│   └── ocr-spike/                    # OCR evaluation spike (SCRUM-99)
 └── README.md                         # Project overview & guide
 ```
 
@@ -120,17 +123,20 @@ TroMateProject/
 | **Use Case Diagram** | [`pa/PA2-Group06/use-case-specification/diagram.png`](pa/PA2-Group06/use-case-specification/diagram.png) |
 | **UI Prototyping Specification** | [`pa/PA2-Group06/ui-prototyping/UI_PROTOTYPING.md`](pa/PA2-Group06/ui-prototyping/UI_PROTOTYPING.md) |
 | **UI Design System** | [`docs/analysis-and-design/TroMate_UI_Design_System.md`](docs/analysis-and-design/TroMate_UI_Design_System.md) |
+| **Technical Spikes: Mini App Backend** | [`docs/analysis-and-design/technical-spike-miniapp-backend.md`](docs/analysis-and-design/technical-spike-miniapp-backend.md) |
 | **Technical Spikes: OCR Evaluation** | [`docs/analysis-and-design/TECHNICAL_SPIKES_SCRUM-99_OCR.md`](docs/analysis-and-design/TECHNICAL_SPIKES_SCRUM-99_OCR.md) |
 | **Technical Spikes: E-Wallet Integration** | [`docs/analysis-and-design/ewallet.md`](docs/analysis-and-design/ewallet.md) |
 | **Telegram Bot Library Evaluation** | [`docs/analysis-and-design/telegram-bot-library-evaluation.md`](docs/analysis-and-design/telegram-bot-library-evaluation.md) |
-| **Weekly Reports (Week 1 – 4)** | [`docs/management/weekly-reports/`](docs/management/weekly-reports/) |
+| **Database Schema & ERD (PA3)** | [`docs/analysis-and-design/database-schema-erd.md`](docs/analysis-and-design/database-schema-erd.md) |
+| **Component Diagram (PA3)** | [`docs/analysis-and-design/component-diagram.pdf`](docs/analysis-and-design/component-diagram.pdf) |
+| **Weekly Reports (Week 1 – 6)** | [`docs/management/weekly-reports/`](docs/management/weekly-reports/) |
 | **Documentation Library Index** | [`docs/README.md`](docs/README.md) |
 
 ---
 
 ## Status
 
-**Current Phase:** `Elaboration Phase (Sprint 2 / PA2 Completed)`
+**Current Phase:** `Construction Phase (Sprint 4 / PA4 In Progress)`
 
 - [x] Project Proposal & Tool Setup (PA0)
 - [x] Problem Validation & User Survey
@@ -140,7 +146,8 @@ TroMateProject/
 - [x] **Interactive UI Prototyping & Flow Diagrams (PA2)**
 - [x] **Technical Spikes: OCR Evaluation, Mini App Auth, VietQR, & E-Wallet Research (PA2)**
 - [x] **Weekly Reports 03 & 04 (PA2)**
-- [ ] Elaboration Phase — Architecture (SAD), Test Plan, & v0.1 Prototype (Sprint 3 / PA3)
+- [x] **System Context, Component Diagram, DB Schema/ERD, UI Design, & Use Case Spec v2.0 (PA3)**
+- [x] **Weekly Reports 05 & 06 (PA3)**
 - [ ] Construction Phase — Development & Beta Pilot (Sprint 4 / PA4)
 - [ ] Transition Phase — Final Release & Acceptance (Sprint 5 / PA5)
 
