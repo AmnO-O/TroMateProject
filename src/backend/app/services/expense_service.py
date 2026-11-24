@@ -6,7 +6,10 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy.exc import IntegrityError
+
 from app.adapters.ai_extraction import AIExtractionAdapter
+from app.adapters.vnd_parser import RawExtractionResult
 from app.db.enums import ExpenseStatus, SourceType
 from app.db.models import Expense, ExpenseSplit
 from app.db.unit_of_work import UnitOfWork, UnitOfWorkFactory
@@ -39,7 +42,7 @@ class CreatedExpense:
 
 
 class ExpenseService:
-    """Orchestrates extraction -> parsing -> PostgreSQL persistence for UC01."""
+    """Orchestrates extraction -> parsing -> single-UoW PostgreSQL persistence for UC01."""
 
     def __init__(
         self,
@@ -64,40 +67,65 @@ class ExpenseService:
         sender_username: str | None,
         text: str,
     ) -> CreatedExpense | None:
-        """Extract, parse, and persist a ``PENDING`` expense from natural Vietnamese text."""
+        """Extract, parse, and persist a ``PENDING`` expense in a single DB transaction."""
 
         raw = await self._extractor.extract(text)
         if raw is None:
             return None
 
-        membership = await self._room_service.register_member(
-            telegram_chat_id=telegram_chat_id,
-            chat_title=chat_title,
-            telegram_user_id=telegram_user_id,
-            display_name=sender_display_name,
-            username=sender_username,
-        )
+        try:
+            return await self._log_expense_once(
+                raw=raw,
+                telegram_chat_id=telegram_chat_id,
+                chat_title=chat_title,
+                telegram_user_id=telegram_user_id,
+                sender_display_name=sender_display_name,
+                sender_username=sender_username,
+            )
+        except IntegrityError:
+            return await self._log_expense_once(
+                raw=raw,
+                telegram_chat_id=telegram_chat_id,
+                chat_title=chat_title,
+                telegram_user_id=telegram_user_id,
+                sender_display_name=sender_display_name,
+                sender_username=sender_username,
+            )
 
+    async def _log_expense_once(
+        self,
+        *,
+        raw: RawExtractionResult,
+        telegram_chat_id: int,
+        chat_title: str,
+        telegram_user_id: int,
+        sender_display_name: str,
+        sender_username: str | None,
+    ) -> CreatedExpense:
         async with self._uow_factory() as uow:
-            room = await uow.rooms.get_room(membership.room_id)
-            if room is None:
-                raise NotFoundError("Room not found")
+            room, sender_member, _, _ = await self._room_service.ensure_room_and_member_in_uow(
+                uow,
+                telegram_chat_id=telegram_chat_id,
+                chat_title=chat_title,
+                telegram_user_id=telegram_user_id,
+                display_name=sender_display_name,
+                username=sender_username,
+            )
 
-            members = await uow.rooms.list_members(room.id)
+            # Reuse eager-loaded room.members directly in RAM (no extra list_members query)
             member_contexts = [
                 MemberContext(
                     member_id=m.id,
                     display_name=m.user.display_name,
                     username=m.user.username,
                 )
-                for m in members
+                for m in room.members
             ]
             names_by_member_id = {m.member_id: m.display_name for m in member_contexts}
 
-            # Feed Subtask 1 RawExtractionResult directly into Subtask 2 ExpenseParser
             parsed = self._parser.parse(
                 raw,
-                sender_member_id=membership.member_id,
+                sender_member_id=sender_member.id,
                 room_members=member_contexts,
             )
 
@@ -107,8 +135,8 @@ class ExpenseService:
             if category is None:
                 raise NotFoundError("Default 'Other' category missing for room")
 
-            # BR02: Rent expenses require manual approval (no auto-confirm deadline).
-            if category.name == "Rent":
+            # BR02: Rent and utility bills mandate manual unanimous approval (no timer).
+            if category.name in {"Rent", "Utilities"}:
                 review_window = None
                 review_deadline = None
             else:
@@ -118,7 +146,7 @@ class ExpenseService:
             expense = Expense(
                 room_id=room.id,
                 category_id=category.id,
-                created_by_member_id=membership.member_id,
+                created_by_member_id=sender_member.id,
                 payer_member_id=parsed.payer_member_id,
                 description=parsed.description,
                 total_amount=parsed.total_amount,

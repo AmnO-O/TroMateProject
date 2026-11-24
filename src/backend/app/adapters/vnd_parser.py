@@ -5,12 +5,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-_AMOUNT_BODY = (
+_UNIT_AMOUNT_BODY = (
     r"\d+(?:[.,]\d+)?\s*(?:k|nghìn|ngàn|tr|triệu|củ|lít|đ|vnd)(?:\s*(?:rưỡi|\d+))?"
     r"|\d{1,3}(?:[.,]\d{3})+\s*(?:đ|vnd)?"
-    r"|\d{4,9}"
 )
-AMOUNT_RE = re.compile(rf"(?i)(?<!\w)({_AMOUNT_BODY})(?!\w)")
+_AMOUNT_BODY = rf"{_UNIT_AMOUNT_BODY}|\d{{4,9}}"
+UNIT_AMOUNT_RE = re.compile(rf"(?i)(?<![\w#-])({_UNIT_AMOUNT_BODY})(?!\w)")
+AMOUNT_RE = re.compile(rf"(?i)(?<![\w#-])({_AMOUNT_BODY})(?!\w)")
 PAYER_RE = re.compile(r"(?i)\b([A-Za-zÀ-ỹ0-9_]+)\s+(?:trả|chi|ứng|thanh\s+toán)\b")
 SPLIT_CLAUSE_RE = re.compile(r"(?i)\b(?:chia|tính\s+tiền|share)\b(.*)$")
 CUSTOM_PAIR_RE = re.compile(
@@ -22,13 +23,30 @@ _STOPWORDS = {"cho", "đều", "nha", "nhé", "nhe", "ạ", "đi", "luôn", "nà
 _IGNORED_PAIR_PREFIXES = {"hết", "tổng", "giá", "tiền", "khoảng", "tầm", "hôm", "tháng", "ngày"}
 
 _CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("Utilities", ("điện", "nước", "rác", "ga", "gas", "vệ sinh")),
     ("Internet", ("wifi", "mạng", "internet", "4g", "cáp quang")),
     ("Rent", ("tiền nhà", "tiền trọ", "thuê nhà", "thuê phòng", "phòng trọ")),
     ("Groceries", ("chợ", "siêu thị", "thịt", "cá", "rau", "trứng", "gạo", "bách hóa")),
     (
         "Food & Drinks",
-        ("ăn", "cơm", "phở", "bún", "mì", "trà sữa", "cafe", "cà phê", "nhậu", "bia", "nước ngọt"),
+        (
+            "ăn",
+            "cơm",
+            "phở",
+            "bún",
+            "mì",
+            "trà sữa",
+            "cafe",
+            "cà phê",
+            "nhậu",
+            "bia",
+            "nước ngọt",
+            "nước uống",
+            "nước suối",
+        ),
+    ),
+    (
+        "Utilities",
+        ("tiền điện", "tiền nước", "hóa đơn nước", "điện", "rác", "ga", "gas", "vệ sinh"),
     ),
     ("Household Supplies", ("xà phòng", "nước rửa", "giấy", "bột giặt", "chổi", "đồ dùng")),
 )
@@ -103,7 +121,7 @@ def extract_expense_fallback(text: str) -> RawExtractionResult | None:
     if not normalized:
         return None
 
-    first_amount = AMOUNT_RE.search(normalized)
+    first_amount = UNIT_AMOUNT_RE.search(normalized) or AMOUNT_RE.search(normalized)
     if not first_amount:
         return None
 

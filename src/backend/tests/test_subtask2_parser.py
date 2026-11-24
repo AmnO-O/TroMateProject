@@ -69,6 +69,42 @@ def test_equal_split_with_remainder_from_raw_extraction() -> None:
     assert sum(s.share_amount for s in parsed.splits) == 100_000
 
 
+def test_equal_split_remainder_rules_payer_and_alphabetical() -> None:
+    parser = ExpenseParser()
+
+    # Case A (§2.5.3): Payer is in the participant list -> Payer absorbs Total % N
+    case_a = RawExtractionResult(
+        raw_amount="100k",
+        description="Mua đồ chung",
+        payer_hint="Nam",
+        participant_hints=[],
+        split_type="EQUAL",
+    )
+    res_a = parser.parse(case_a, sender_member_id=MEMBER_TAO, room_members=ROOM_MEMBERS)
+    shares_a = {s.member_id: s.share_amount for s in res_a.splits}
+    assert shares_a == {
+        MEMBER_TAO: 33_333,
+        MEMBER_NAM: 33_334,
+        MEMBER_AN: 33_333,
+    }
+
+    # Case B (§2.5.3): Payer is NOT in split list -> first member sorted A-Z absorbs Total % N
+    # "Nguyễn Văn Nam" < "Trần Minh" alphabetically
+    case_b = RawExtractionResult(
+        raw_amount=100_001,  # type: ignore[arg-type]
+        description="Mua đồ hộ",
+        payer_hint="An",
+        participant_hints=["Trần Minh", "Nguyễn Văn Nam"],
+        split_type="EQUAL",
+    )
+    res_b = parser.parse(case_b, sender_member_id=MEMBER_TAO, room_members=ROOM_MEMBERS)
+    shares_b = {s.member_id: s.share_amount for s in res_b.splits}
+    assert shares_b == {
+        MEMBER_TAO: 50_000,
+        MEMBER_NAM: 50_001,
+    }
+
+
 async def test_direct_feed_subtask1_to_subtask2() -> None:
     extractor = AIExtractionAdapter(api_key="")
     parser = ExpenseParser()

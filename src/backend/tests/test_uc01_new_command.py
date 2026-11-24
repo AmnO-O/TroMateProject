@@ -20,9 +20,9 @@ from aiogram.types import Message, Update  # noqa: E402
 from app.adapters.ai_extraction import AIExtractionAdapter  # noqa: E402
 from app.bots.aiogram_bot import AiogramEngine  # noqa: E402
 from app.core.config import Settings  # noqa: E402
-from app.db.enums import DEFAULT_CATEGORIES, ExpenseStatus, MemberRole  # noqa: E402
+from app.db.enums import DEFAULT_CATEGORIES, ExpenseStatus  # noqa: E402
 from app.services.expense_service import ExpenseService  # noqa: E402
-from app.services.room_service import Membership  # noqa: E402
+from app.services.room_service import RoomService  # noqa: E402
 
 
 @dataclass
@@ -30,6 +30,9 @@ class _FakeRoomRepo:
     room: Any
     members: list[Any]
     categories: dict[str, Any]
+
+    async def get_room_by_chat_id(self, telegram_chat_id: int) -> Any:
+        return self.room if self.room.telegram_chat_id == telegram_chat_id else None
 
     async def get_room(self, room_id: uuid.UUID) -> Any:
         return self.room if self.room.id == room_id else None
@@ -70,19 +73,22 @@ class _FakeUnitOfWork:
         self.committed = True
 
 
-class _FakeRoomService:
-    def __init__(self, room_id: uuid.UUID, member_id: uuid.UUID, user_id: uuid.UUID) -> None:
-        self._membership = Membership(
-            room_id=room_id,
-            member_id=member_id,
-            user_id=user_id,
-            role=MemberRole.ROOM_REP,
-            room_created=False,
-            member_created=False,
-        )
+class _FakeRoomService(RoomService):
+    def __init__(self, sender_member: Any) -> None:
+        self._sender_member = sender_member
 
-    async def register_member(self, **kwargs: Any) -> Membership:
-        return self._membership
+    async def ensure_room_and_member_in_uow(
+        self,
+        uow: Any,
+        *,
+        telegram_chat_id: int,
+        chat_title: str,
+        telegram_user_id: int,
+        display_name: str,
+        username: str | None = None,
+    ) -> tuple[Any, Any, bool, bool]:
+        room = await uow.rooms.get_room_by_chat_id(telegram_chat_id)
+        return room, self._sender_member, False, False
 
 
 def _build_fake_service(
@@ -93,21 +99,32 @@ def _build_fake_service(
     u1, u2, u3 = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     m1, m2, m3 = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
 
-    room = SimpleNamespace(id=room_id, review_timeout_minutes=5)
     members = [
         SimpleNamespace(
             id=m1,
-            user=SimpleNamespace(id=u1, display_name="Trần Minh", username="tranminh"),
+            user=SimpleNamespace(
+                id=u1, telegram_user_id=9001, display_name="Trần Minh", username="tranminh"
+            ),
         ),
         SimpleNamespace(
             id=m2,
-            user=SimpleNamespace(id=u2, display_name="Nguyễn Văn Nam", username="nam"),
+            user=SimpleNamespace(
+                id=u2, telegram_user_id=9002, display_name="Nguyễn Văn Nam", username="nam"
+            ),
         ),
         SimpleNamespace(
             id=m3,
-            user=SimpleNamespace(id=u3, display_name="Trần Bình An", username="an"),
+            user=SimpleNamespace(
+                id=u3, telegram_user_id=9003, display_name="Trần Bình An", username="an"
+            ),
         ),
     ]
+    room = SimpleNamespace(
+        id=room_id,
+        telegram_chat_id=-100123456,
+        review_timeout_minutes=5,
+        members=members,
+    )
     categories = {
         name.lower(): SimpleNamespace(id=uuid.uuid4(), name=name, is_archived=False)
         for name in DEFAULT_CATEGORIES
@@ -115,11 +132,11 @@ def _build_fake_service(
 
     room_repo = _FakeRoomRepo(room=room, members=members, categories=categories)
     expense_repo = _FakeExpenseRepo()
-    room_service = _FakeRoomService(room_id=room_id, member_id=m1, user_id=u1)
+    room_service = _FakeRoomService(sender_member=members[0])
 
     service = ExpenseService(
         extractor=AIExtractionAdapter(api_key=api_key, timeout_s=15.0),
-        room_service=room_service,  # type: ignore[arg-type]
+        room_service=room_service,
         uow_factory=lambda: _FakeUnitOfWork(room_repo, expense_repo),  # type: ignore[arg-type]
     )
     return service, expense_repo
@@ -187,13 +204,49 @@ async def test_new_command_creates_pending_expense_and_inline_card(settings: Set
     html_text, kwargs = captured[0]
     assert "Đi chợ mua thịt cá" in html_text
     assert "150,000đ" in html_text
-    assert "PENDING" in html_text
+    assert "Chờ xác nhận" in html_text
+    assert "Hạn xác nhận:" in html_text
 
     keyboard = kwargs["reply_markup"].inline_keyboard[0]
-    assert [btn.text for btn in keyboard] == ["✅ Agree", "❌ Reject", "✏️ Edit"]
+    assert [btn.text for btn in keyboard] == ["✓ Đồng ý", "✕ Từ chối", "✎ Chỉnh sửa"]
     assert keyboard[0].callback_data == f"expense:agree:{saved.id}:{saved.version}"
     assert keyboard[1].callback_data == f"expense:reject:{saved.id}:{saved.version}"
     assert keyboard[2].url == f"https://t.me/tromate_bot?startapp=expense_{saved.id}"
+
+
+async def test_new_command_br02_manual_approval_for_utilities_and_rent(settings: Settings) -> None:
+    service, expense_repo = _build_fake_service(api_key="")
+    engine = AiogramEngine(settings, expense_service=service)
+    engine.username = "tromate_bot"
+    captured: list[str] = []
+
+    async def fake_answer(self: Message, text: str, **kwargs: Any) -> None:
+        captured.append(text)
+
+    with patch.object(Message, "answer", fake_answer):
+        await engine.dp.feed_update(
+            engine.bot,
+            Update.model_validate(
+                _group_command_update("/new Tiền điện tháng 10 hết 650k chia đều cả phòng"),
+                context={"bot": engine.bot},
+            ),
+        )
+        await engine.dp.feed_update(
+            engine.bot,
+            Update.model_validate(
+                _group_command_update("/new Tiền trọ tháng 10 hết 3tr"),
+                context={"bot": engine.bot},
+            ),
+        )
+    await engine.bot.session.close()
+
+    assert len(expense_repo.saved) == 2
+    utilities_exp, rent_exp = expense_repo.saved
+    assert utilities_exp.review_deadline is None
+    assert utilities_exp.review_window_minutes is None
+    assert rent_exp.review_deadline is None
+    assert "Chờ xác nhận (Duyệt thủ công — BR02)" in captured[0]
+    assert "Không tự động xác nhận" in captured[0]
 
 
 async def test_new_command_guards_empty_args_and_private_chat(settings: Settings) -> None:

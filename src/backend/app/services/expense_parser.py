@@ -154,7 +154,13 @@ class ExpenseParser:
                 room_members=room_members,
                 member_index=member_index,
             )
-            splits = self._compute_equal_splits(total_amount, target_ids)
+            display_names = {m.member_id: m.display_name for m in room_members}
+            splits = self._compute_equal_splits(
+                total_amount,
+                target_ids,
+                payer_member_id=payer_member_id,
+                display_names=display_names,
+            )
             resolved_split_type = SplitType.EQUAL
         else:
             raise ValidationError(f"Unsupported split_type: {extracted.split_type!r}")
@@ -239,7 +245,12 @@ class ExpenseParser:
     def _compute_equal_splits(
         total_amount: int,
         participant_ids: Sequence[uuid.UUID],
+        *,
+        payer_member_id: uuid.UUID,
+        display_names: Mapping[uuid.UUID, str],
     ) -> list[ComputedSplit]:
+        """Split equally; assign modulo remainder to payer or first A-Z member (§2.5.3)."""
+
         count = len(participant_ids)
         if count == 0:
             raise ValidationError("At least one participant is required")
@@ -247,12 +258,22 @@ class ExpenseParser:
         if base == 0:
             raise ValidationError("Each participant share must be at least 1 VND")
 
+        absorber_id: uuid.UUID | None = None
+        if remainder > 0:
+            if payer_member_id in participant_ids:
+                absorber_id = payer_member_id
+            else:
+                absorber_id = min(
+                    participant_ids,
+                    key=lambda mid: (display_names.get(mid, "").strip().casefold(), str(mid)),
+                )
+
         return [
             ComputedSplit(
                 member_id=member_id,
-                share_amount=base + (1 if idx < remainder else 0),
+                share_amount=base + (remainder if member_id == absorber_id else 0),
             )
-            for idx, member_id in enumerate(participant_ids)
+            for member_id in participant_ids
         ]
 
     def _compute_custom_splits(
