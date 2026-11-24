@@ -10,6 +10,24 @@ Planned services: ``ExpenseParser`` (SCRUM-123), ``ExpenseService`` (SCRUM-124),
 ``DebtEngine`` (SCRUM-125).
 """
 
+from app.services.expense_parser import (
+    ComputedSplit,
+    ExpenseParser,
+    ExtractionPayload,
+    MemberContext,
+    ParsedExpense,
+    normalize_vnd_amount,
+)
 from app.services.room_service import CategoryInfo, Membership, RoomService
 
-__all__ = ["CategoryInfo", "Membership", "RoomService"]
+__all__ = [
+    "CategoryInfo",
+    "ComputedSplit",
+    "ExpenseParser",
+    "ExtractionPayload",
+    "MemberContext",
+    "Membership",
+    "ParsedExpense",
+    "RoomService",
+    "normalize_vnd_amount",
+]
