@@ -1,8 +1,4 @@
-"""Interface contract and command definitions for the TroMate Telegram Bot (Subtask 3).
-
-This module defines ONLY the boundary DTOs, command specifications, callback schemas,
-and Protocol interfaces. Concrete aiogram 3 handlers will be wired in a later step.
-"""
+"""Interface contract and command definitions for the TroMate Telegram Bot (SCRUM-123)."""
 
 from __future__ import annotations
 
@@ -25,39 +21,33 @@ class BotCommandSpec:
 TROMATE_BOT_COMMANDS: tuple[BotCommandSpec, ...] = (
     BotCommandSpec(
         command="start",
-        description="Khởi động bot & mở liên kết TroMate Mini App",
+        description="Open TroMate Mini App",
         scope="all",
         usage_example="/start",
     ),
     BotCommandSpec(
         command="help",
-        description="Xem hướng dẫn sử dụng và cú pháp nhập chi tiêu tự nhiên",
+        description="Show available commands and /new usage",
         scope="all",
         usage_example="/help",
     ),
     BotCommandSpec(
         command="app",
-        description="Mở nhanh giao diện TroMate Mini App",
+        description="Open the Mini App",
         scope="all",
         usage_example="/app",
     ),
     BotCommandSpec(
         command="balance",
-        description="Xem tóm tắt số dư công nợ hiện tại của phòng",
+        description="Show room balances",
         scope="group",
         usage_example="/balance",
     ),
     BotCommandSpec(
-        command="log",
-        description="Ghi nhận khoản chi tiêu chung mới (hoặc nhắn trực tiếp trong group)",
+        command="new",
+        description="Log a shared expense via Vietnamese text",
         scope="group",
-        usage_example="/log Đi chợ 150k chia tao với Nam",
-    ),
-    BotCommandSpec(
-        command="pending",
-        description="Liệt kê các khoản chi tiêu đang chờ xác nhận trong phòng",
-        scope="group",
-        usage_example="/pending",
+        usage_example="/new Đi chợ 150k chia tao với Nam",
     ),
 )
 
@@ -68,26 +58,26 @@ CALLBACK_PREFIX_BALANCE_REFRESH = "balance:refresh"
 
 
 def build_agree_callback(expense_id: uuid.UUID, version: int) -> str:
-    """Build callback data for ``[✅ Đồng ý / Agree]`` within Telegram's 64-byte limit."""
+    """Build callback data for ``[Agree]`` within Telegram's 64-byte limit."""
 
     return f"{CALLBACK_PREFIX_EXPENSE_AGREE}:{expense_id}:{version}"
 
 
 def build_reject_callback(expense_id: uuid.UUID, version: int) -> str:
-    """Build callback data for ``[❌ Từ chối / Reject]`` within Telegram's 64-byte limit."""
+    """Build callback data for ``[Reject]`` within Telegram's 64-byte limit."""
 
     return f"{CALLBACK_PREFIX_EXPENSE_REJECT}:{expense_id}:{version}"
 
 
 def build_edit_callback(expense_id: uuid.UUID) -> str:
-    """Build callback data / Mini App deep-link identifier for ``[✏️ Sửa / Edit]``."""
+    """Build fallback callback data for ``[Edit]`` when Mini App deep link is unavailable."""
 
     return f"{CALLBACK_PREFIX_EXPENSE_EDIT}:{expense_id}"
 
 
 @dataclass(frozen=True, slots=True)
 class IncomingGroupMessage:
-    """Normalized incoming Telegram group message passed from router to controller."""
+    """Normalized incoming ``/new`` group message passed from router to controller."""
 
     telegram_chat_id: int
     chat_title: str
@@ -109,7 +99,7 @@ class SplitLineDTO:
 
 @dataclass(frozen=True, slots=True)
 class ConfirmationCardDTO:
-    """Presentation payload for the UC01/UC05 inline confirmation card."""
+    """Presentation payload for the UC01 inline confirmation card."""
 
     expense_id: uuid.UUID
     version: int
@@ -121,47 +111,24 @@ class ConfirmationCardDTO:
     splits: tuple[SplitLineDTO, ...]
     review_deadline: datetime | None = None
     miniapp_edit_url: str = ""
-
-
-@dataclass(frozen=True, slots=True)
-class BotActionReply:
-    """Renderable bot reply returned by controller methods to the Telegram transport."""
-
-    text: str
-    confirmation_card: ConfirmationCardDTO | None = None
-    reply_to_message_id: int | None = None
+    extraction_source: str = "fallback"
 
 
 class ConfirmationCardBuilderProtocol(Protocol):
     """Formats a ``ConfirmationCardDTO`` into Telegram HTML text and inline buttons."""
 
     def render_html(self, card: ConfirmationCardDTO) -> str:
-        """Render the expense summary, splits, and approval status as Telegram HTML."""
+        """Render the expense summary, splits, and status as Telegram HTML."""
 
-    def build_inline_buttons(self, card: ConfirmationCardDTO) -> list[list[dict[str, str]]]:
-        """Build button rows for ``[Agree]``, ``[Reject]``, and ``[Edit]``."""
+    def build_inline_buttons(self, card: ConfirmationCardDTO) -> object:
+        """Build inline keyboard rows for ``[Agree]``, ``[Reject]``, and ``[Edit]``."""
 
 
 class ExpenseBotControllerProtocol(Protocol):
-    """Boundary interface connecting Telegram bot handlers to application services."""
+    """Boundary interface connecting ``/new`` bot handler to application services."""
 
-    async def handle_expense_text(self, message: IncomingGroupMessage) -> BotActionReply | None:
-        """Handle a ``/log`` command or natural-language expense message in a group chat.
-
-        Returns ``None`` when the message is ordinary chatter (not an expense log).
-        """
-
-    async def handle_list_pending(self, telegram_chat_id: int) -> BotActionReply:
-        """Return a summary of ``PENDING`` expenses awaiting confirmation in the room."""
-
-    async def handle_balance_summary(self, telegram_chat_id: int) -> BotActionReply:
-        """Return the room's current net balance summary."""
-
-    async def handle_approval_callback(
+    async def handle_new_expense(
         self,
-        *,
-        telegram_chat_id: int,
-        telegram_user_id: int,
-        callback_data: str,
-    ) -> ConfirmationCardDTO:
-        """Process ``expense:agree`` or ``expense:reject`` and return the updated card."""
+        message: IncomingGroupMessage,
+    ) -> ConfirmationCardDTO | None:
+        """Process a ``/new <text>`` command and return a confirmation card payload."""

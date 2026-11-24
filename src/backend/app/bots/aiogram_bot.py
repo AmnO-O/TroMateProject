@@ -7,7 +7,7 @@ from typing import Any
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import (
     BotCommand,
     CallbackQuery,
@@ -19,6 +19,7 @@ from aiogram.types import (
     WebAppInfo,
 )
 
+from app.adapters.ai_extraction import AIExtractionAdapter
 from app.bots.base import BotEngine, TaskTracker
 from app.bots.common import (
     balance_text,
@@ -27,7 +28,15 @@ from app.bots.common import (
     miniapp_direct_link,
     start_text,
 )
+from app.bots.expense_card import build_confirmation_keyboard, render_confirmation_card_html
+from app.bots.interface import (
+    TROMATE_BOT_COMMANDS,
+    ConfirmationCardDTO,
+    SplitLineDTO,
+)
 from app.core.config import Settings
+from app.services.errors import ServiceError
+from app.services.expense_service import ExpenseService
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +44,12 @@ logger = logging.getLogger(__name__)
 class AiogramEngine(BotEngine):
     name = "aiogram"
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        expense_service: ExpenseService | None = None,
+    ) -> None:
         self.settings = settings
         self.bot = Bot(
             token=settings.telegram_bot_token,
@@ -44,8 +58,12 @@ class AiogramEngine(BotEngine):
         self.dp = Dispatcher()
         self.router = Router()
         self._tasks = TaskTracker("app.bots.aiogram_bot")
+        self._expense_service = expense_service or ExpenseService(
+            extractor=AIExtractionAdapter(api_key=settings.gemini_api_key),
+        )
 
         self.router.message.register(self._on_start, CommandStart())
+        self.router.message.register(self._on_new_expense, Command("new"))
         self.router.message.register(self._on_balance, Command("balance"))
         self.router.message.register(self._on_app, Command("app"))
         self.router.message.register(self._on_help, Command("help"))
@@ -63,10 +81,8 @@ class AiogramEngine(BotEngine):
         try:
             await self.bot.set_my_commands(
                 [
-                    BotCommand(command="start", description="Open TroMate Mini App"),
-                    BotCommand(command="balance", description="Show mock balances"),
-                    BotCommand(command="app", description="Open the Mini App"),
-                    BotCommand(command="help", description="Show available commands"),
+                    BotCommand(command=spec.command, description=spec.description)
+                    for spec in TROMATE_BOT_COMMANDS
                 ]
             )
         except Exception:
@@ -157,6 +173,71 @@ class AiogramEngine(BotEngine):
                 group_start_text(self.name, self.username),
                 reply_markup=self._group_miniapp_keyboard(),
             )
+
+    async def _on_new_expense(self, message: Message, command: CommandObject) -> None:
+        if message.chat.type not in {"group", "supergroup"}:
+            await message.answer(
+                "Lệnh /new chỉ dùng trong nhóm chat phòng trọ.\n"
+                "Ví dụ: <code>/new Đi chợ 150k chia tao với Nam</code>"
+            )
+            return
+
+        if message.from_user is None:
+            return
+
+        raw_text = (command.args or "").strip()
+        if not raw_text:
+            await message.answer(
+                "Vui lòng nhập nội dung chi tiêu sau lệnh /new.\n"
+                "Ví dụ: <code>/new Đi chợ 150k chia tao với Nam</code>"
+            )
+            return
+
+        try:
+            created = await self._expense_service.log_expense_from_text(
+                telegram_chat_id=message.chat.id,
+                chat_title=message.chat.title or f"Room {message.chat.id}",
+                telegram_user_id=message.from_user.id,
+                sender_display_name=message.from_user.full_name,
+                sender_username=message.from_user.username,
+                text=raw_text,
+            )
+        except ServiceError as exc:
+            await message.answer(f"⚠️ Không thể ghi nhận chi tiêu: {exc.message}")
+            return
+
+        if created is None:
+            await message.answer(
+                "⚠️ Không nhận diện được số tiền hợp lệ.\n"
+                "Ví dụ: <code>/new Tiền điện 650k chia đều cả phòng</code>"
+            )
+            return
+
+        edit_url = (
+            f"https://t.me/{self.username}?startapp=expense_{created.expense_id}"
+            if self.username
+            else ""
+        )
+        card = ConfirmationCardDTO(
+            expense_id=created.expense_id,
+            version=created.version,
+            description=created.description,
+            total_amount=created.total_amount,
+            payer_name=created.payer_name,
+            category_name=created.category_name,
+            status=created.status.value,
+            splits=tuple(
+                SplitLineDTO(display_name=s.display_name, share_amount=s.share_amount)
+                for s in created.splits
+            ),
+            review_deadline=created.review_deadline,
+            miniapp_edit_url=edit_url,
+            extraction_source=created.extraction_source,
+        )
+        await message.answer(
+            render_confirmation_card_html(card),
+            reply_markup=build_confirmation_keyboard(card),
+        )
 
     async def _on_balance(self, message: Message) -> None:
         await message.answer(balance_text(), reply_markup=self._balance_keyboard())

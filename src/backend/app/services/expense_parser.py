@@ -1,13 +1,13 @@
-"""Domain service for VND normalization and roommate expense split calculation (Subtask 2)."""
+"""Domain service for VND normalization and roommate expense split calculation."""
 
 from __future__ import annotations
 
 import re
 import uuid
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
+from app.adapters.vnd_parser import RawExtractionResult
 from app.db.enums import SplitType
 from app.services.errors import ValidationError
 
@@ -30,19 +30,6 @@ _UNIT_MULTIPLIERS: dict[str, int] = {
     "vnd": 1,
     "đồng": 1,
 }
-
-
-@dataclass(frozen=True, slots=True)
-class ExtractionPayload:
-    """Input contract matching the structured output produced by Subtask 1."""
-
-    raw_amount: str | int
-    description: str
-    payer_hint: str = "sender"
-    participant_hints: list[str] = field(default_factory=list)
-    split_type: str = "EQUAL"
-    custom_splits: dict[str, str | int] = field(default_factory=dict)
-    category_hint: str = "Other"
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,7 +77,6 @@ def normalize_vnd_amount(raw: str | int) -> int:
     if text.startswith("-"):
         raise ValidationError("Expense amount must be positive")
 
-    # Strip trailing currency label when thousand separators are used, e.g. "150.000đ"
     plain_candidate = re.sub(r"(?i)\s*(?:đ|vnd|đồng)\s*$", "", text).strip()
     if _THOUSANDS_RE.fullmatch(plain_candidate):
         value = int(plain_candidate.replace(".", "").replace(",", ""))
@@ -130,36 +116,12 @@ def normalize_vnd_amount(raw: str | int) -> int:
     return total
 
 
-def _coerce_payload(payload: ExtractionPayload | Mapping[str, Any]) -> ExtractionPayload:
-    if isinstance(payload, ExtractionPayload):
-        return payload
-    if isinstance(payload, Mapping):
-        return ExtractionPayload(
-            raw_amount=payload["raw_amount"],
-            description=str(payload.get("description") or "Chi tiêu chung"),
-            payer_hint=str(payload.get("payer_hint") or "sender"),
-            participant_hints=list(payload.get("participant_hints") or []),
-            split_type=str(payload.get("split_type") or "EQUAL"),
-            custom_splits=dict(payload.get("custom_splits") or {}),
-            category_hint=str(payload.get("category_hint") or "Other"),
-        )
-    return ExtractionPayload(
-        raw_amount=payload.raw_amount,
-        description=str(getattr(payload, "description", "Chi tiêu chung")),
-        payer_hint=str(getattr(payload, "payer_hint", "sender")),
-        participant_hints=list(getattr(payload, "participant_hints", [])),
-        split_type=str(getattr(payload, "split_type", "EQUAL")),
-        custom_splits=dict(getattr(payload, "custom_splits", {})),
-        category_hint=str(getattr(payload, "category_hint", "Other")),
-    )
-
-
 class ExpenseParser:
-    """Normalizes raw extraction output and computes validated VND splits."""
+    """Normalizes ``RawExtractionResult`` directly and computes validated VND splits."""
 
     def parse(
         self,
-        payload: ExtractionPayload | Mapping[str, Any],
+        extracted: RawExtractionResult,
         *,
         sender_member_id: uuid.UUID,
         room_members: Sequence[MemberContext],
@@ -167,28 +129,27 @@ class ExpenseParser:
         if not room_members:
             raise ValidationError("Room must have at least one member")
 
-        data = _coerce_payload(payload)
-        total_amount = normalize_vnd_amount(data.raw_amount)
+        total_amount = normalize_vnd_amount(extracted.raw_amount)
         member_index = self._build_member_index(room_members)
 
         payer_member_id = self._resolve_member(
-            data.payer_hint,
+            extracted.payer_hint,
             sender_member_id=sender_member_id,
             member_index=member_index,
         )
 
-        split_type_upper = data.split_type.strip().upper()
+        split_type_upper = extracted.split_type.strip().upper()
         if split_type_upper == SplitType.CUSTOM_AMOUNT:
             splits = self._compute_custom_splits(
                 total_amount=total_amount,
-                custom_splits=data.custom_splits,
+                custom_splits=extracted.custom_splits,
                 sender_member_id=sender_member_id,
                 member_index=member_index,
             )
             resolved_split_type = SplitType.CUSTOM_AMOUNT
         elif split_type_upper == SplitType.EQUAL:
             target_ids = self._resolve_participants(
-                data.participant_hints,
+                extracted.participant_hints,
                 sender_member_id=sender_member_id,
                 room_members=room_members,
                 member_index=member_index,
@@ -196,10 +157,10 @@ class ExpenseParser:
             splits = self._compute_equal_splits(total_amount, target_ids)
             resolved_split_type = SplitType.EQUAL
         else:
-            raise ValidationError(f"Unsupported split_type: {data.split_type!r}")
+            raise ValidationError(f"Unsupported split_type: {extracted.split_type!r}")
 
-        description = data.description.strip() or "Chi tiêu chung"
-        category_name = data.category_hint.strip() or "Other"
+        description = extracted.description.strip() or "Chi tiêu chung"
+        category_name = extracted.category_hint.strip() or "Other"
 
         return ParsedExpense(
             description=description,
