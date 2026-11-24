@@ -38,3 +38,9 @@ PA3.pdf
 tmp/
 scratch/
 Weekly Report Template.docx
+
+# Local-only notes in docs/test
+docs/test/*.md
+
+# Office lock files
+~$*
