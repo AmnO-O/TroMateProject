@@ -1,0 +1,327 @@
+"""Domain service for VND normalization and roommate expense split calculation (Subtask 2)."""
+
+from __future__ import annotations
+
+import re
+import uuid
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from typing import Any
+
+from app.db.enums import SplitType
+from app.services.errors import ValidationError
+
+_SLANG_RE = re.compile(
+    r"^\s*([+-]?\d+(?:[.,]\d+)?)\s*(k|nghìn|ngàn|tr|triệu|củ|lít|đ|vnd|đồng)?(?:\s*(rưỡi|\d+))?\s*$",
+    re.IGNORECASE,
+)
+_THOUSANDS_RE = re.compile(r"^\d{1,3}(?:[.,]\d{3})+$")
+_SELF_PRONOUNS = frozenset({"", "sender", "tao", "tôi", "mình", "tớ"})
+
+_UNIT_MULTIPLIERS: dict[str, int] = {
+    "k": 1_000,
+    "nghìn": 1_000,
+    "ngàn": 1_000,
+    "lít": 100_000,
+    "tr": 1_000_000,
+    "triệu": 1_000_000,
+    "củ": 1_000_000,
+    "đ": 1,
+    "vnd": 1,
+    "đồng": 1,
+}
+
+
+@dataclass(frozen=True, slots=True)
+class ExtractionPayload:
+    """Input contract matching the structured output produced by Subtask 1."""
+
+    raw_amount: str | int
+    description: str
+    payer_hint: str = "sender"
+    participant_hints: list[str] = field(default_factory=list)
+    split_type: str = "EQUAL"
+    custom_splits: dict[str, str | int] = field(default_factory=dict)
+    category_hint: str = "Other"
+
+
+@dataclass(frozen=True, slots=True)
+class MemberContext:
+    """Minimal room member projection needed to resolve names to member IDs."""
+
+    member_id: uuid.UUID
+    display_name: str
+    username: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ComputedSplit:
+    """Single participant share ready to persist as ``ExpenseSplit``."""
+
+    member_id: uuid.UUID
+    share_amount: int
+
+
+@dataclass(frozen=True, slots=True)
+class ParsedExpense:
+    """Normalized expense domain result ready for persistence."""
+
+    description: str
+    total_amount: int
+    payer_member_id: uuid.UUID
+    split_type: SplitType
+    splits: list[ComputedSplit]
+    category_name: str
+
+
+def normalize_vnd_amount(raw: str | int) -> int:
+    """Convert Vietnamese currency slang or formatted text into whole VND (> 0)."""
+
+    if isinstance(raw, bool):
+        raise ValidationError("Invalid amount value")
+    if isinstance(raw, int):
+        if raw <= 0:
+            raise ValidationError("Expense amount must be positive")
+        return raw
+
+    text = str(raw).strip()
+    if not text:
+        raise ValidationError("Expense amount cannot be empty")
+    if text.startswith("-"):
+        raise ValidationError("Expense amount must be positive")
+
+    # Strip trailing currency label when thousand separators are used, e.g. "150.000đ"
+    plain_candidate = re.sub(r"(?i)\s*(?:đ|vnd|đồng)\s*$", "", text).strip()
+    if _THOUSANDS_RE.fullmatch(plain_candidate):
+        value = int(plain_candidate.replace(".", "").replace(",", ""))
+        if value <= 0:
+            raise ValidationError("Expense amount must be positive")
+        return value
+
+    match = _SLANG_RE.fullmatch(text)
+    if not match:
+        raise ValidationError(f"Unable to parse VND amount: {raw!r}")
+
+    num_str, unit_raw, suffix_raw = match.groups()
+    unit = (unit_raw or "").lower()
+    multiplier = _UNIT_MULTIPLIERS.get(unit, 1)
+
+    if unit in {"", "đ", "vnd", "đồng"} and ("." in num_str or "," in num_str):
+        raise ValidationError(f"Ambiguous decimal VND amount without unit: {raw!r}")
+
+    base_num = float(num_str.replace(",", "."))
+    total = round(base_num * multiplier)
+
+    if suffix_raw:
+        suffix = suffix_raw.lower()
+        if multiplier <= 1:
+            raise ValidationError(f"Unexpected trailing token in amount: {raw!r}")
+        if suffix == "rưỡi":
+            total += multiplier // 2
+        elif suffix.isdigit():
+            # e.g. "1tr2" -> +200_000, "150k5" -> +500
+            scale = multiplier // (10 ** len(suffix))
+            if scale <= 0:
+                raise ValidationError(f"Invalid fractional suffix in amount: {raw!r}")
+            total += int(suffix) * scale
+
+    if total <= 0:
+        raise ValidationError("Expense amount must be positive")
+    return total
+
+
+def _coerce_payload(payload: ExtractionPayload | Mapping[str, Any]) -> ExtractionPayload:
+    if isinstance(payload, ExtractionPayload):
+        return payload
+    if isinstance(payload, Mapping):
+        return ExtractionPayload(
+            raw_amount=payload["raw_amount"],
+            description=str(payload.get("description") or "Chi tiêu chung"),
+            payer_hint=str(payload.get("payer_hint") or "sender"),
+            participant_hints=list(payload.get("participant_hints") or []),
+            split_type=str(payload.get("split_type") or "EQUAL"),
+            custom_splits=dict(payload.get("custom_splits") or {}),
+            category_hint=str(payload.get("category_hint") or "Other"),
+        )
+    return ExtractionPayload(
+        raw_amount=payload.raw_amount,
+        description=str(getattr(payload, "description", "Chi tiêu chung")),
+        payer_hint=str(getattr(payload, "payer_hint", "sender")),
+        participant_hints=list(getattr(payload, "participant_hints", [])),
+        split_type=str(getattr(payload, "split_type", "EQUAL")),
+        custom_splits=dict(getattr(payload, "custom_splits", {})),
+        category_hint=str(getattr(payload, "category_hint", "Other")),
+    )
+
+
+class ExpenseParser:
+    """Normalizes raw extraction output and computes validated VND splits."""
+
+    def parse(
+        self,
+        payload: ExtractionPayload | Mapping[str, Any],
+        *,
+        sender_member_id: uuid.UUID,
+        room_members: Sequence[MemberContext],
+    ) -> ParsedExpense:
+        if not room_members:
+            raise ValidationError("Room must have at least one member")
+
+        data = _coerce_payload(payload)
+        total_amount = normalize_vnd_amount(data.raw_amount)
+        member_index = self._build_member_index(room_members)
+
+        payer_member_id = self._resolve_member(
+            data.payer_hint,
+            sender_member_id=sender_member_id,
+            member_index=member_index,
+        )
+
+        split_type_upper = data.split_type.strip().upper()
+        if split_type_upper == SplitType.CUSTOM_AMOUNT:
+            splits = self._compute_custom_splits(
+                total_amount=total_amount,
+                custom_splits=data.custom_splits,
+                sender_member_id=sender_member_id,
+                member_index=member_index,
+            )
+            resolved_split_type = SplitType.CUSTOM_AMOUNT
+        elif split_type_upper == SplitType.EQUAL:
+            target_ids = self._resolve_participants(
+                data.participant_hints,
+                sender_member_id=sender_member_id,
+                room_members=room_members,
+                member_index=member_index,
+            )
+            splits = self._compute_equal_splits(total_amount, target_ids)
+            resolved_split_type = SplitType.EQUAL
+        else:
+            raise ValidationError(f"Unsupported split_type: {data.split_type!r}")
+
+        description = data.description.strip() or "Chi tiêu chung"
+        category_name = data.category_hint.strip() or "Other"
+
+        return ParsedExpense(
+            description=description,
+            total_amount=total_amount,
+            payer_member_id=payer_member_id,
+            split_type=resolved_split_type,
+            splits=splits,
+            category_name=category_name,
+        )
+
+    @staticmethod
+    def _build_member_index(room_members: Sequence[MemberContext]) -> dict[str, uuid.UUID]:
+        index: dict[str, uuid.UUID] = {}
+        first_name_counts: dict[str, int] = {}
+
+        for member in room_members:
+            display = member.display_name.strip().lower()
+            if display:
+                index[display] = member.member_id
+                last_token = display.split()[-1]
+                first_name_counts[last_token] = first_name_counts.get(last_token, 0) + 1
+            if member.username:
+                uname = member.username.strip().lstrip("@").lower()
+                if uname:
+                    index[uname] = member.member_id
+
+        # Allow matching by unique short given name (e.g. "Nam" for "Nguyễn Văn Nam")
+        for member in room_members:
+            display = member.display_name.strip().lower()
+            if display:
+                last_token = display.split()[-1]
+                if first_name_counts.get(last_token) == 1 and last_token not in index:
+                    index[last_token] = member.member_id
+
+        return index
+
+    @staticmethod
+    def _resolve_member(
+        hint: str,
+        *,
+        sender_member_id: uuid.UUID,
+        member_index: dict[str, uuid.UUID],
+    ) -> uuid.UUID:
+        key = hint.strip().lstrip("@").lower()
+        if key in member_index:
+            return member_index[key]
+        if key in _SELF_PRONOUNS:
+            return sender_member_id
+        raise ValidationError(f"Unknown room member reference: {hint!r}")
+
+    def _resolve_participants(
+        self,
+        hints: Sequence[str],
+        *,
+        sender_member_id: uuid.UUID,
+        room_members: Sequence[MemberContext],
+        member_index: dict[str, uuid.UUID],
+    ) -> list[uuid.UUID]:
+        if not hints:
+            return [m.member_id for m in room_members]
+
+        seen: set[uuid.UUID] = set()
+        resolved: list[uuid.UUID] = []
+        for hint in hints:
+            member_id = self._resolve_member(
+                hint,
+                sender_member_id=sender_member_id,
+                member_index=member_index,
+            )
+            if member_id not in seen:
+                seen.add(member_id)
+                resolved.append(member_id)
+        return resolved
+
+    @staticmethod
+    def _compute_equal_splits(
+        total_amount: int,
+        participant_ids: Sequence[uuid.UUID],
+    ) -> list[ComputedSplit]:
+        count = len(participant_ids)
+        if count == 0:
+            raise ValidationError("At least one participant is required")
+        base, remainder = divmod(total_amount, count)
+        if base == 0:
+            raise ValidationError("Each participant share must be at least 1 VND")
+
+        return [
+            ComputedSplit(
+                member_id=member_id,
+                share_amount=base + (1 if idx < remainder else 0),
+            )
+            for idx, member_id in enumerate(participant_ids)
+        ]
+
+    def _compute_custom_splits(
+        self,
+        *,
+        total_amount: int,
+        custom_splits: Mapping[str, str | int],
+        sender_member_id: uuid.UUID,
+        member_index: dict[str, uuid.UUID],
+    ) -> list[ComputedSplit]:
+        if not custom_splits:
+            raise ValidationError("custom_splits cannot be empty when split_type is CUSTOM_AMOUNT")
+
+        merged: dict[uuid.UUID, int] = {}
+        for hint, raw_share in custom_splits.items():
+            member_id = self._resolve_member(
+                hint,
+                sender_member_id=sender_member_id,
+                member_index=member_index,
+            )
+            share_amount = normalize_vnd_amount(raw_share)
+            merged[member_id] = merged.get(member_id, 0) + share_amount
+
+        total_splits = sum(merged.values())
+        if total_splits != total_amount:
+            raise ValidationError(
+                f"Sum of custom splits ({total_splits}) does not match total ({total_amount})"
+            )
+
+        return [
+            ComputedSplit(member_id=member_id, share_amount=amount)
+            for member_id, amount in merged.items()
+        ]
