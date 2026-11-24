@@ -249,6 +249,59 @@ async def test_new_command_br02_manual_approval_for_utilities_and_rent(settings:
     assert "Không tự động xác nhận" in captured[0]
 
 
+async def test_ensure_room_and_member_initializes_relationships_for_async_session() -> None:
+    from sqlalchemy import inspect as sa_inspect
+
+    class _ColdRoomRepo:
+        def __init__(self) -> None:
+            self.created_room: Any = None
+            self.created_member: Any = None
+
+        async def get_room_by_chat_id(self, telegram_chat_id: int) -> Any:
+            return None
+
+        async def get_user_by_telegram_id(self, telegram_user_id: int) -> Any:
+            return None
+
+        async def add_user(self, user: Any) -> Any:
+            user.id = uuid.uuid4()
+            return user
+
+        async def add_room(self, room: Any) -> Any:
+            room.id = uuid.uuid4()
+            self.created_room = room
+            return room
+
+        async def add_categories(self, categories: Any) -> list[Any]:
+            return list(categories)
+
+        async def get_member_by_user(self, room_id: uuid.UUID, user_id: uuid.UUID) -> Any:
+            return None
+
+        async def add_member(self, member: Any) -> Any:
+            member.id = uuid.uuid4()
+            self.created_member = member
+            return member
+
+    cold_repo = _ColdRoomRepo()
+    uow = SimpleNamespace(rooms=cold_repo)
+    room, member, room_created, member_created = await RoomService().ensure_room_and_member_in_uow(
+        uow,  # type: ignore[arg-type]
+        telegram_chat_id=-777111222,
+        chat_title="New Room",
+        telegram_user_id=777111222,
+        display_name="First User",
+        username="firstuser",
+    )
+
+    assert room_created is True
+    assert member_created is True
+    assert "members" not in sa_inspect(cold_repo.created_room).unloaded
+    assert "user" not in sa_inspect(cold_repo.created_member).unloaded
+    assert room.members == [member]
+    assert member.user.display_name == "First User"
+
+
 async def test_new_command_guards_empty_args_and_private_chat(settings: Settings) -> None:
     service, expense_repo = _build_fake_service(api_key="")
     engine = AiogramEngine(settings, expense_service=service)

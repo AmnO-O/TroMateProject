@@ -111,7 +111,7 @@ class RoomService:
         room_created = room is None
         if room is None:
             room = await uow.rooms.add_room(
-                Room(telegram_chat_id=telegram_chat_id, name=chat_title[:128])
+                Room(telegram_chat_id=telegram_chat_id, name=chat_title[:128], members=[])
             )
             await uow.rooms.add_categories(
                 Category(room_id=room.id, name=name, is_default=True)
@@ -126,10 +126,10 @@ class RoomService:
                 RoomMember(
                     room_id=room.id,
                     user_id=user.id,
+                    user=user,
                     role=MemberRole.ROOM_REP if is_first else MemberRole.MEMBER,
                 )
             )
-            member.user = user
             room.members.append(member)
 
         return room, member, room_created, member_created

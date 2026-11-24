@@ -76,3 +76,21 @@ async def test_room_members_relationship_is_eager_loaded(uow_factory) -> None:
         names = [m.user.display_name for m in loaded.members]
     assert names == ["Hao", "Lan", "Minh"]
     assert all(isinstance(m, RoomMember) for m in loaded.members)
+
+
+async def test_ensure_room_and_member_in_uow_new_room_no_missing_greenlet(uow_factory) -> None:
+    service = RoomService(uow_factory)
+    async with uow_factory() as uow:
+        room, member, room_created, member_created = await service.ensure_room_and_member_in_uow(
+            uow,
+            telegram_chat_id=CHAT_ID + 99,
+            chat_title="Cold Path Room",
+            telegram_user_id=9901,
+            display_name="Cold User",
+        )
+        await uow.commit()
+
+    assert room_created is True
+    assert member_created is True
+    assert member.role is MemberRole.ROOM_REP
+    assert [m.user.display_name for m in room.members] == ["Cold User"]
