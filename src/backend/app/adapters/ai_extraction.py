@@ -55,14 +55,18 @@ class AIExtractionAdapter:
         try:
             return await self._extract_with_gemini(cleaned)
         except Exception as exc:
-            logger.warning("Gemini extraction failed (%s); falling back to vnd_parser", exc)
+            logger.warning(
+                "Gemini extraction failed (%s); falling back to vnd_parser",
+                type(exc).__name__,
+            )
             return extract_expense_fallback(cleaned)
 
     async def _extract_with_gemini(self, text: str) -> RawExtractionResult | None:
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.model}:generateContent?key={self.api_key}"
+            f"{self.model}:generateContent"
         )
+        headers = {"x-goog-api-key": self.api_key}
         body: dict[str, Any] = {
             "systemInstruction": {"parts": [{"text": _SYSTEM_PROMPT}]},
             "contents": [{"role": "user", "parts": [{"text": text}]}],
@@ -73,10 +77,15 @@ class AIExtractionAdapter:
         }
 
         if self._client is not None:
-            response = await self._client.post(url, json=body, timeout=self.timeout_s)
+            response = await self._client.post(
+                url,
+                headers=headers,
+                json=body,
+                timeout=self.timeout_s,
+            )
         else:
             async with httpx.AsyncClient(timeout=self.timeout_s) as client:
-                response = await client.post(url, json=body)
+                response = await client.post(url, headers=headers, json=body)
 
         response.raise_for_status()
         payload = response.json()

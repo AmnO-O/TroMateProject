@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 import time
@@ -130,3 +131,27 @@ async def test_gemini_vs_fallback_benchmark() -> None:
         f"Average: Fallback={avg_fb:.3f} ms vs Gemini={avg_gm:.2f} ms "
         f"(Fallback is {speedup:,.1f}x faster)"
     )
+
+
+async def test_gemini_api_key_not_leaked_in_logs(caplog: pytest.LogCaptureFixture) -> None:
+    secret_key = "SECRET_GEMINI_KEY_123"
+    captured_requests: list[httpx.Request] = []
+
+    def _rate_limited_handler(request: httpx.Request) -> httpx.Response:
+        captured_requests.append(request)
+        return httpx.Response(429, json={"error": "rate limit exceeded"})
+
+    caplog.set_level(logging.WARNING)
+    transport = httpx.MockTransport(_rate_limited_handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        adapter = AIExtractionAdapter(api_key=secret_key, client=client)
+        result = await adapter.extract("Mua nước uống 60k chia tao với Bình")
+
+    assert len(captured_requests) == 1
+    req = captured_requests[0]
+    assert req.headers.get("x-goog-api-key") == secret_key
+    assert secret_key not in str(req.url)
+    assert result is not None
+    assert result.source == "fallback"
+    assert secret_key not in caplog.text
+    assert "HTTPStatusError" in caplog.text
