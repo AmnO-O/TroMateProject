@@ -249,6 +249,64 @@ async def test_new_command_br02_manual_approval_for_utilities_and_rent(settings:
     assert "Không tự động xác nhận" in captured[0]
 
 
+async def test_new_command_category_inference_and_br02_vs_br03(settings: Settings) -> None:
+    service, expense_repo = _build_fake_service(api_key="")
+    engine = AiogramEngine(settings, expense_service=service)
+    engine.username = "tromate_bot"
+    captured: list[str] = []
+
+    async def fake_answer(self: Message, text: str, **kwargs: Any) -> None:
+        captured.append(text)
+
+    with patch.object(Message, "answer", fake_answer):
+        for cmd in (
+            "/new Tiền phòng tháng 12 3tr",
+            "/new Tiền điện căn hộ 650k",
+            "/new Mua nước uống 45k",
+        ):
+            await engine.dp.feed_update(
+                engine.bot,
+                Update.model_validate(_group_command_update(cmd), context={"bot": engine.bot}),
+            )
+    await engine.bot.session.close()
+
+    assert len(expense_repo.saved) == 3
+    rent_exp, utilities_exp, drink_exp = expense_repo.saved
+    assert rent_exp.review_deadline is None
+    assert utilities_exp.review_deadline is None
+    assert drink_exp.review_deadline is not None
+
+    assert "Danh mục: Rent" in captured[0]
+    assert "Danh mục: Utilities" in captured[1]
+    assert "Danh mục: Food &amp; Drinks" in captured[2]
+
+
+async def test_new_command_escapes_html_in_validation_error(settings: Settings) -> None:
+    service, expense_repo = _build_fake_service(api_key="")
+    engine = AiogramEngine(settings, expense_service=service)
+    captured: list[str] = []
+
+    async def fake_answer(self: Message, text: str, **kwargs: Any) -> None:
+        captured.append(text)
+
+    with patch.object(Message, "answer", fake_answer):
+        await engine.dp.feed_update(
+            engine.bot,
+            Update.model_validate(
+                _group_command_update("/new Ăn trưa 100k chia Nam, <b>"),
+                context={"bot": engine.bot},
+            ),
+        )
+    await engine.bot.session.close()
+
+    assert len(expense_repo.saved) == 0
+    assert len(captured) == 1
+    assert "&lt;b&gt;" in captured[0]
+    assert "<b>" not in captured[0]
+    assert "Không tìm thấy thành viên" in captured[0]
+    assert "cần nhắn /start hoặc /new trong nhóm trước" in captured[0]
+
+
 async def test_ensure_room_and_member_initializes_relationships_for_async_session() -> None:
     from sqlalchemy import inspect as sa_inspect
 

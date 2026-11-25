@@ -12,7 +12,8 @@ from app.db.enums import SplitType
 from app.services.errors import ValidationError
 
 _SLANG_RE = re.compile(
-    r"^\s*([+-]?\d+(?:[.,]\d+)?)\s*(k|nghìn|ngàn|tr|triệu|củ|lít|đ|vnd|đồng)?(?:\s*(rưỡi|\d+))?\s*$",
+    r"^\s*([+-]?\d+(?:[.,]\d+)?)\s*(k|nghìn|ngàn|tr|triệu|củ|lít|đ|vnd|đồng)?"
+    r"(?:\s*(rưỡi)|(\d+))?\s*$",
     re.IGNORECASE,
 )
 _THOUSANDS_RE = re.compile(r"^\d{1,3}(?:[.,]\d{3})+$")
@@ -65,35 +66,38 @@ def normalize_vnd_amount(raw: str | int) -> int:
     """Convert Vietnamese currency slang or formatted text into whole VND (> 0)."""
 
     if isinstance(raw, bool):
-        raise ValidationError("Invalid amount value")
+        raise ValidationError("Giá trị số tiền không hợp lệ.")
     if isinstance(raw, int):
         if raw <= 0:
-            raise ValidationError("Expense amount must be positive")
+            raise ValidationError("Số tiền chi tiêu phải lớn hơn 0đ.")
         return raw
 
     text = str(raw).strip()
     if not text:
-        raise ValidationError("Expense amount cannot be empty")
+        raise ValidationError("Số tiền chi tiêu không được để trống.")
     if text.startswith("-"):
-        raise ValidationError("Expense amount must be positive")
+        raise ValidationError("Số tiền chi tiêu phải lớn hơn 0đ.")
 
     plain_candidate = re.sub(r"(?i)\s*(?:đ|vnd|đồng)\s*$", "", text).strip()
     if _THOUSANDS_RE.fullmatch(plain_candidate):
         value = int(plain_candidate.replace(".", "").replace(",", ""))
         if value <= 0:
-            raise ValidationError("Expense amount must be positive")
+            raise ValidationError("Số tiền chi tiêu phải lớn hơn 0đ.")
         return value
 
     match = _SLANG_RE.fullmatch(text)
     if not match:
-        raise ValidationError(f"Unable to parse VND amount: {raw!r}")
+        raise ValidationError(f'Không nhận diện được số tiền hợp lệ: "{raw}".')
 
-    num_str, unit_raw, suffix_raw = match.groups()
+    num_str, unit_raw, ruoi_raw, digits_raw = match.groups()
+    suffix_raw = ruoi_raw or digits_raw
     unit = (unit_raw or "").lower()
     multiplier = _UNIT_MULTIPLIERS.get(unit, 1)
 
     if unit in {"", "đ", "vnd", "đồng"} and ("." in num_str or "," in num_str):
-        raise ValidationError(f"Ambiguous decimal VND amount without unit: {raw!r}")
+        raise ValidationError(
+            f'Số tiền "{raw}" có dấu thập phân nhưng thiếu đơn vị (ví dụ: k, tr, đ).'
+        )
 
     base_num = float(num_str.replace(",", "."))
     total = round(base_num * multiplier)
@@ -101,18 +105,18 @@ def normalize_vnd_amount(raw: str | int) -> int:
     if suffix_raw:
         suffix = suffix_raw.lower()
         if multiplier <= 1:
-            raise ValidationError(f"Unexpected trailing token in amount: {raw!r}")
+            raise ValidationError(f'Số tiền "{raw}" chứa phần đuôi không hợp lệ.')
         if suffix == "rưỡi":
             total += multiplier // 2
         elif suffix.isdigit():
             # e.g. "1tr2" -> +200_000, "150k5" -> +500
             scale = multiplier // (10 ** len(suffix))
             if scale <= 0:
-                raise ValidationError(f"Invalid fractional suffix in amount: {raw!r}")
+                raise ValidationError(f'Phần lẻ trong số tiền "{raw}" không hợp lệ.')
             total += int(suffix) * scale
 
     if total <= 0:
-        raise ValidationError("Expense amount must be positive")
+        raise ValidationError("Số tiền chi tiêu phải lớn hơn 0đ.")
     return total
 
 
@@ -127,7 +131,7 @@ class ExpenseParser:
         room_members: Sequence[MemberContext],
     ) -> ParsedExpense:
         if not room_members:
-            raise ValidationError("Room must have at least one member")
+            raise ValidationError("Phòng trọ phải có ít nhất một thành viên.")
 
         total_amount = normalize_vnd_amount(extracted.raw_amount)
         member_index = self._build_member_index(room_members)
@@ -163,7 +167,7 @@ class ExpenseParser:
             )
             resolved_split_type = SplitType.EQUAL
         else:
-            raise ValidationError(f"Unsupported split_type: {extracted.split_type!r}")
+            raise ValidationError(f'Kiểu chia tiền "{extracted.split_type}" không được hỗ trợ.')
 
         description = extracted.description.strip() or "Chi tiêu chung"
         category_name = extracted.category_hint.strip() or "Other"
@@ -215,7 +219,10 @@ class ExpenseParser:
             return member_index[key]
         if key in _SELF_PRONOUNS:
             return sender_member_id
-        raise ValidationError(f"Unknown room member reference: {hint!r}")
+        raise ValidationError(
+            f'Không tìm thấy thành viên "{hint}" trong phòng. '
+            f"{hint} cần nhắn /start hoặc /new trong nhóm trước."
+        )
 
     def _resolve_participants(
         self,
@@ -253,10 +260,10 @@ class ExpenseParser:
 
         count = len(participant_ids)
         if count == 0:
-            raise ValidationError("At least one participant is required")
+            raise ValidationError("Cần ít nhất một người tham gia chia tiền.")
         base, remainder = divmod(total_amount, count)
         if base == 0:
-            raise ValidationError("Each participant share must be at least 1 VND")
+            raise ValidationError("Phần chia của mỗi người phải ít nhất 1đ.")
 
         absorber_id: uuid.UUID | None = None
         if remainder > 0:
@@ -285,7 +292,7 @@ class ExpenseParser:
         member_index: dict[str, uuid.UUID],
     ) -> list[ComputedSplit]:
         if not custom_splits:
-            raise ValidationError("custom_splits cannot be empty when split_type is CUSTOM_AMOUNT")
+            raise ValidationError("Danh sách chia tiền cụ thể không được để trống.")
 
         merged: dict[uuid.UUID, int] = {}
         for hint, raw_share in custom_splits.items():
@@ -300,7 +307,7 @@ class ExpenseParser:
         total_splits = sum(merged.values())
         if total_splits != total_amount:
             raise ValidationError(
-                f"Sum of custom splits ({total_splits}) does not match total ({total_amount})"
+                f"Tổng các phần chia ({total_splits:,}đ) không khớp tổng tiền ({total_amount:,}đ)."
             )
 
         return [

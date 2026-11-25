@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 
 _UNIT_AMOUNT_BODY = (
-    r"\d+(?:[.,]\d+)?\s*(?:k|nghìn|ngàn|tr|triệu|củ|lít|đ|vnd)(?:\s*(?:rưỡi|\d+))?"
+    r"\d+(?:[.,]\d+)?\s*(?:k|nghìn|ngàn|tr|triệu|củ|lít|đ|vnd)(?:\s*rưỡi|\d+)?"
     r"|\d{1,3}(?:[.,]\d{3})+\s*(?:đ|vnd)?"
 )
 _AMOUNT_BODY = rf"{_UNIT_AMOUNT_BODY}|\d{{4,9}}"
@@ -23,8 +23,33 @@ _STOPWORDS = {"cho", "đều", "nha", "nhé", "nhe", "ạ", "đi", "luôn", "nà
 _IGNORED_PAIR_PREFIXES = {"hết", "tổng", "giá", "tiền", "khoảng", "tầm", "hôm", "tháng", "ngày"}
 
 _CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "Rent",
+        (
+            "tiền phòng",
+            "tiền thuê",
+            "tiền nhà",
+            "tiền trọ",
+            "thuê nhà",
+            "thuê phòng",
+            "phòng trọ",
+        ),
+    ),
+    (
+        "Utilities",
+        (
+            "tiền điện",
+            "tiền nước",
+            "hóa đơn nước",
+            "hóa đơn điện",
+            "điện",
+            "rác",
+            "ga",
+            "gas",
+            "vệ sinh",
+        ),
+    ),
     ("Internet", ("wifi", "mạng", "internet", "4g", "cáp quang")),
-    ("Rent", ("tiền nhà", "tiền trọ", "thuê nhà", "thuê phòng", "phòng trọ")),
     ("Groceries", ("chợ", "siêu thị", "thịt", "cá", "rau", "trứng", "gạo", "bách hóa")),
     (
         "Food & Drinks",
@@ -43,10 +68,6 @@ _CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
             "nước uống",
             "nước suối",
         ),
-    ),
-    (
-        "Utilities",
-        ("tiền điện", "tiền nước", "hóa đơn nước", "điện", "rác", "ga", "gas", "vệ sinh"),
     ),
     ("Household Supplies", ("xà phòng", "nước rửa", "giấy", "bột giặt", "chổi", "đồ dùng")),
 )
@@ -69,7 +90,7 @@ class RawExtractionResult:
 def _infer_category(text: str) -> str:
     lowered = text.lower()
     for category, keywords in _CATEGORY_KEYWORDS:
-        if any(keyword in lowered for keyword in keywords):
+        if any(re.search(rf"(?<!\w){re.escape(keyword)}(?!\w)", lowered) for keyword in keywords):
             return category
     return "Other"
 

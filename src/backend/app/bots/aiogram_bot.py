@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from html import escape
 from typing import Any
 
 from aiogram import Bot, Dispatcher, F, Router
@@ -203,7 +204,7 @@ class AiogramEngine(BotEngine):
                 text=raw_text,
             )
         except ServiceError as exc:
-            await message.answer(f"⚠️ Không thể ghi nhận chi tiêu: {exc.message}")
+            await message.answer(f"⚠️ Không thể ghi nhận chi tiêu: {escape(exc.message)}")
             return
 
         if created is None:

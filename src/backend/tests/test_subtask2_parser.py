@@ -8,7 +8,7 @@ import uuid
 import pytest
 
 from app.adapters.ai_extraction import AIExtractionAdapter
-from app.adapters.vnd_parser import RawExtractionResult
+from app.adapters.vnd_parser import RawExtractionResult, extract_expense_fallback
 from app.db.enums import SplitType
 from app.services.errors import ValidationError
 from app.services.expense_parser import (
@@ -36,8 +36,11 @@ ROOM_MEMBERS = [
         ("650 nghìn", 650_000),
         ("1 củ rưỡi", 1_500_000),
         ("1tr2", 1_200_000),
+        ("2.5tr", 2_500_000),
         ("2 lít", 200_000),
         ("150.000đ", 150_000),
+        ("650.000đ", 650_000),
+        ("1500", 1_500),
         (250_000, 250_000),
     ],
 )
@@ -134,6 +137,34 @@ async def test_direct_feed_subtask1_to_subtask2() -> None:
     ]
 
 
+def test_fallback_headcount_does_not_inflate_amount_and_categories() -> None:
+    parser = ExpenseParser()
+
+    hotpot = extract_expense_fallback("Ăn lẩu 300k 3 người")
+    assert hotpot is not None
+    assert hotpot.raw_amount == "300k"
+    parsed_hotpot = parser.parse(hotpot, sender_member_id=MEMBER_TAO, room_members=ROOM_MEMBERS)
+    assert parsed_hotpot.total_amount == 300_000
+
+    pizza = extract_expense_fallback("Pizza 200k 2 đứa tao với Nam")
+    assert pizza is not None
+    assert pizza.raw_amount == "200k"
+    parsed_pizza = parser.parse(pizza, sender_member_id=MEMBER_TAO, room_members=ROOM_MEMBERS)
+    assert parsed_pizza.total_amount == 200_000
+
+    rent = extract_expense_fallback("Tiền phòng tháng 12 3tr")
+    assert rent is not None
+    assert rent.category_hint == "Rent"
+
+    utilities = extract_expense_fallback("Tiền điện căn hộ 650k")
+    assert utilities is not None
+    assert utilities.category_hint == "Utilities"
+
+    water_drink = extract_expense_fallback("Mua nước uống 45k")
+    assert water_drink is not None
+    assert water_drink.category_hint == "Food & Drinks"
+
+
 def test_validation_errors() -> None:
     parser = ExpenseParser()
 
@@ -144,6 +175,9 @@ def test_validation_errors() -> None:
         normalize_vnd_amount("0k")
 
     with pytest.raises(ValidationError):
+        normalize_vnd_amount("300k 3")
+
+    with pytest.raises(ValidationError, match="Tổng các phần chia"):
         parser.parse(
             RawExtractionResult(
                 raw_amount="120k",
@@ -155,7 +189,7 @@ def test_validation_errors() -> None:
             room_members=ROOM_MEMBERS,
         )
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="Không tìm thấy thành viên"):
         parser.parse(
             RawExtractionResult(
                 raw_amount="100k",
