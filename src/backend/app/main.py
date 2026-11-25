@@ -34,7 +34,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         configure_logging(settings.log_level)
-        if settings.app_env != "test" and settings.database_url:
+        if settings.app_env != "test":
             await warmup_engine()
         bot_engine = engine or create_engine(settings)
         await bot_engine.startup()

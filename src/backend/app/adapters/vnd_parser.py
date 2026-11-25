@@ -107,11 +107,30 @@ def _extract_participants(text: str) -> list[str]:
     return participants
 
 
-def _clean_description(prefix: str) -> str:
-    cleaned = prefix.strip(" :,-.")
-    cleaned = re.sub(r"(?i)\b(?:hết|tổng(?:\s+cộng)?|giá|tốn|mất|là)\s*$", "", cleaned)
-    cleaned = cleaned.strip(" :,-.")
-    return cleaned or "Chi tiêu chung"
+_NON_PAYER_WORDS = {"ai", "người", "tự", "đã", "vừa", "tiền"}
+_TRAILING_CONNECTOR_RE = re.compile(
+    r"(?i)\b(?:hết|tổng(?:\s+cộng)?|giá|tốn|mất|là)\s*$"
+)
+
+
+def _strip_description_noise(text: str) -> str:
+    def _replace_payer(match: re.Match[str]) -> str:
+        return match.group(0) if match.group(1).lower() in _NON_PAYER_WORDS else ""
+
+    cleaned = PAYER_RE.sub(_replace_payer, text)
+    cleaned = " ".join(cleaned.split()).strip(" :,-.")
+    cleaned = _TRAILING_CONNECTOR_RE.sub("", cleaned)
+    return " ".join(cleaned.split()).strip(" :,-.")
+
+
+def _clean_description(prefix: str, tail: str = "") -> str:
+    cleaned_prefix = _strip_description_noise(prefix)
+    if cleaned_prefix:
+        return cleaned_prefix
+
+    tail_without_split = SPLIT_CLAUSE_RE.sub("", tail)
+    cleaned_tail = _strip_description_noise(tail_without_split)
+    return cleaned_tail or "Chi tiêu chung"
 
 
 def extract_expense_fallback(text: str) -> RawExtractionResult | None:
@@ -146,7 +165,7 @@ def extract_expense_fallback(text: str) -> RawExtractionResult | None:
 
     return RawExtractionResult(
         raw_amount=raw_amount,
-        description=_clean_description(prefix),
+        description=_clean_description(prefix, tail),
         payer_hint=_extract_payer(normalized),
         participant_hints=participant_hints,
         split_type=split_type,

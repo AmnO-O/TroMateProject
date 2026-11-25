@@ -6,19 +6,27 @@ import os
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 pytest.importorskip("aiogram")
 
-from aiogram.types import Message, Update  # noqa: E402
+from aiogram.types import (  # noqa: E402
+    BotCommandScopeAllGroupChats,
+    BotCommandScopeAllPrivateChats,
+    Message,
+    Update,
+)
 
 from app.adapters.ai_extraction import AIExtractionAdapter  # noqa: E402
 from app.bots.aiogram_bot import AiogramEngine  # noqa: E402
+from app.bots.expense_card import render_confirmation_card_html  # noqa: E402
+from app.bots.interface import ConfirmationCardDTO, SplitLineDTO  # noqa: E402
 from app.core.config import Settings  # noqa: E402
 from app.db.enums import DEFAULT_CATEGORIES, ExpenseStatus  # noqa: E402
 from app.services.expense_service import ExpenseService  # noqa: E402
@@ -330,6 +338,68 @@ async def test_new_command_guards_empty_args_and_private_chat(settings: Settings
     assert "chỉ dùng trong nhóm" in captured[1]
 
 
+def test_confirmation_card_formats_deadline_in_gmt_plus_7() -> None:
+    card = ConfirmationCardDTO(
+        expense_id=uuid.uuid4(),
+        version=1,
+        description="Ăn tối",
+        total_amount=100_000,
+        payer_name="Trần Minh",
+        category_name="Food & Drinks",
+        status="PENDING",
+        splits=(SplitLineDTO(display_name="Trần Minh", share_amount=100_000),),
+        review_deadline=datetime(2026, 11, 25, 10, 30, tzinfo=UTC),
+    )
+    html = render_confirmation_card_html(card)
+    assert "⏳ Hạn xác nhận: 17:30 25/11 (GMT+7)" in html
+
+
+async def test_aiogram_engine_uses_gemini_model_shared_client_and_command_scopes() -> None:
+    custom_settings = Settings(
+        app_env="test",
+        public_base_url="http://testserver",
+        auto_set_webhook=False,
+        bot_library="aiogram",
+        telegram_bot_token="123456:TEST_TOKEN",
+        telegram_webhook_secret="test-secret-0123456789abcdef",
+        gemini_model="gemini-2.5-flash",
+    )
+    engine = AiogramEngine(custom_settings)
+    extractor = engine._expense_service._extractor
+    assert isinstance(extractor, AIExtractionAdapter)
+    assert extractor.model == "gemini-2.5-flash"
+    assert extractor._client is engine._http_client
+    assert engine._http_client.is_closed is False
+
+    set_commands_mock = AsyncMock()
+    with (
+        patch.object(
+            engine.bot,
+            "get_me",
+            new=AsyncMock(return_value=SimpleNamespace(username="tromate_bot")),
+        ),
+        patch.object(engine.bot, "set_my_commands", new=set_commands_mock),
+        patch.object(engine.bot, "set_chat_menu_button", new=AsyncMock()),
+    ):
+        await engine.startup()
+
+    assert set_commands_mock.await_count == 2
+    private_call, group_call = set_commands_mock.await_args_list
+    assert isinstance(private_call.kwargs["scope"], BotCommandScopeAllPrivateChats)
+    assert [cmd.command for cmd in private_call.args[0]] == ["start", "help", "app"]
+    assert isinstance(group_call.kwargs["scope"], BotCommandScopeAllGroupChats)
+    assert [cmd.command for cmd in group_call.args[0]] == [
+        "start",
+        "help",
+        "app",
+        "balance",
+        "new",
+    ]
+
+    await engine.shutdown()
+    assert engine._http_client.is_closed is True
+
+
 async def test_new_command_e2e_latency_fallback_vs_gemini(settings: Settings) -> None:
     sample_cmd = "/new Trà sữa 120k tao trả, Minh 70k, An 50k"
 
@@ -355,9 +425,9 @@ async def test_new_command_e2e_latency_fallback_vs_gemini(settings: Settings) ->
     fb_ms, fb_saved = await _run_once("")
     assert fb_saved == 1
 
-    gemini_key = _load_gemini_key()
+    gemini_key = _load_gemini_key() if os.environ.get("RUN_LIVE_GEMINI") == "1" else ""
     if not gemini_key:
-        print(f"\n[UC01 /new E2E Timing] Fallback={fb_ms:.3f} ms (Gemini skipped: no API key)")
+        print(f"\n[UC01 /new E2E Timing] Fallback={fb_ms:.3f} ms (Gemini skipped)")
         return
 
     gm_ms, gm_saved = await _run_once(gemini_key)

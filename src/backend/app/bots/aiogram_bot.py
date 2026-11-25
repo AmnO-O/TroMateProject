@@ -4,12 +4,15 @@ import asyncio
 import logging
 from typing import Any
 
+import httpx
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import (
     BotCommand,
+    BotCommandScopeAllGroupChats,
+    BotCommandScopeAllPrivateChats,
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -58,8 +61,13 @@ class AiogramEngine(BotEngine):
         self.dp = Dispatcher()
         self.router = Router()
         self._tasks = TaskTracker("app.bots.aiogram_bot")
+        self._http_client = httpx.AsyncClient(timeout=10.0)
         self._expense_service = expense_service or ExpenseService(
-            extractor=AIExtractionAdapter(api_key=settings.gemini_api_key),
+            extractor=AIExtractionAdapter(
+                api_key=settings.gemini_api_key,
+                model=settings.gemini_model,
+                client=self._http_client,
+            ),
         )
 
         self.router.message.register(self._on_start, CommandStart())
@@ -79,11 +87,23 @@ class AiogramEngine(BotEngine):
         self.username = me.username or ""
 
         try:
+            private_commands = [
+                BotCommand(command=spec.command, description=spec.description)
+                for spec in TROMATE_BOT_COMMANDS
+                if spec.scope in {"all", "private"}
+            ]
+            group_commands = [
+                BotCommand(command=spec.command, description=spec.description)
+                for spec in TROMATE_BOT_COMMANDS
+                if spec.scope in {"all", "group"}
+            ]
             await self.bot.set_my_commands(
-                [
-                    BotCommand(command=spec.command, description=spec.description)
-                    for spec in TROMATE_BOT_COMMANDS
-                ]
+                private_commands,
+                scope=BotCommandScopeAllPrivateChats(),
+            )
+            await self.bot.set_my_commands(
+                group_commands,
+                scope=BotCommandScopeAllGroupChats(),
             )
         except Exception:
             logger.exception("aiogram: failed to set commands")
@@ -120,6 +140,7 @@ class AiogramEngine(BotEngine):
 
     async def shutdown(self) -> None:
         await self._tasks.shutdown()
+        await self._http_client.aclose()
         await self.bot.session.close()
 
     async def handle_update(self, payload: dict[str, Any]) -> None:

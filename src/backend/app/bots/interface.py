@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, Protocol
+from typing import Literal
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,19 +76,6 @@ def build_edit_callback(expense_id: uuid.UUID) -> str:
 
 
 @dataclass(frozen=True, slots=True)
-class IncomingGroupMessage:
-    """Normalized incoming ``/new`` group message passed from router to controller."""
-
-    telegram_chat_id: int
-    chat_title: str
-    telegram_user_id: int
-    sender_display_name: str
-    sender_username: str | None
-    message_id: int
-    text: str
-
-
-@dataclass(frozen=True, slots=True)
 class SplitLineDTO:
     """One participant line displayed inside a confirmation card."""
 
@@ -112,23 +99,3 @@ class ConfirmationCardDTO:
     review_deadline: datetime | None = None
     miniapp_edit_url: str = ""
     extraction_source: str = "fallback"
-
-
-class ConfirmationCardBuilderProtocol(Protocol):
-    """Formats a ``ConfirmationCardDTO`` into Telegram HTML text and inline buttons."""
-
-    def render_html(self, card: ConfirmationCardDTO) -> str:
-        """Render the expense summary, splits, and status as Telegram HTML."""
-
-    def build_inline_buttons(self, card: ConfirmationCardDTO) -> object:
-        """Build inline keyboard rows for ``[Agree]``, ``[Reject]``, and ``[Edit]``."""
-
-
-class ExpenseBotControllerProtocol(Protocol):
-    """Boundary interface connecting ``/new`` bot handler to application services."""
-
-    async def handle_new_expense(
-        self,
-        message: IncomingGroupMessage,
-    ) -> ConfirmationCardDTO | None:
-        """Process a ``/new <text>`` command and return a confirmation card payload."""
