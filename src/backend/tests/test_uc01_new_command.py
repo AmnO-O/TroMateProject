@@ -219,7 +219,7 @@ async def test_new_command_creates_pending_expense_and_inline_card(settings: Set
     assert [btn.text for btn in keyboard] == ["✓ Đồng ý", "✕ Từ chối", "✎ Chỉnh sửa"]
     assert keyboard[0].callback_data == f"expense:agree:{saved.id}:{saved.version}"
     assert keyboard[1].callback_data == f"expense:reject:{saved.id}:{saved.version}"
-    assert keyboard[2].url == f"https://t.me/tromate_bot?startapp=expense_{saved.id}"
+    assert keyboard[2].callback_data == f"expense:edit:{saved.id}:{saved.version}"
 
 
 async def test_new_command_br02_manual_approval_for_utilities_and_rent(settings: Settings) -> None:

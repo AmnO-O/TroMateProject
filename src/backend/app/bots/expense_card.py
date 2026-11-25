@@ -43,10 +43,15 @@ def render_confirmation_card_html(card: ConfirmationCardDTO) -> str:
         "",
         "<b>Chi tiết chia tiền:</b>",
     ]
+    if card.voter_count:
+        lines.append(f"{escape(card.payer_name)} (payer): {escape(card.payer_decision)}")
     for split in card.splits:
         lines.append(f"• {escape(split.display_name)}: {split.share_amount:,}đ")
 
-    if card.review_deadline is not None:
+        if card.voter_count:
+            lines[-1] += f" · {escape(split.decision)}"
+
+    if card.status == "PENDING" and card.review_deadline is not None:
         deadline_dt = (
             card.review_deadline.replace(tzinfo=UTC)
             if card.review_deadline.tzinfo is None
@@ -54,23 +59,23 @@ def render_confirmation_card_html(card: ConfirmationCardDTO) -> str:
         )
         deadline_str = deadline_dt.astimezone(_VN_TZ).strftime("%H:%M %d/%m (GMT+7)")
         lines.append(f"\n⏳ Hạn xác nhận: {deadline_str}")
-    else:
+    elif card.status == "PENDING":
         lines.append("\n🔒 Không tự động xác nhận (bắt buộc 100% thành viên đồng ý)")
 
+    if card.voter_count:
+        lines.append(f"Đồng ý: {card.agreed_count}/{card.voter_count}")
     return "\n".join(lines)
 
 
 def build_confirmation_keyboard(card: ConfirmationCardDTO) -> InlineKeyboardMarkup:
     """Build ``[✓ Đồng ý]``, ``[✕ Từ chối]``, and ``[✎ Chỉnh sửa]`` buttons."""
 
-    edit_button = (
-        InlineKeyboardButton(text="✎ Chỉnh sửa", url=card.miniapp_edit_url)
-        if card.miniapp_edit_url
-        else InlineKeyboardButton(
-            text="✎ Chỉnh sửa",
-            callback_data=build_edit_callback(card.expense_id),
-        )
+    edit_button = InlineKeyboardButton(
+        text="✎ Chỉnh sửa",
+        callback_data=build_edit_callback(card.expense_id, card.version),
     )
+    if card.status == "DISPUTED":
+        return InlineKeyboardMarkup(inline_keyboard=[[edit_button]])
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [

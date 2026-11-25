@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from html import escape
 from typing import Any
 
@@ -9,12 +10,14 @@ import httpx
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import (
     BotCommand,
     BotCommandScopeAllGroupChats,
     BotCommandScopeAllPrivateChats,
     CallbackQuery,
+    ForceReply,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     MenuButtonWebApp,
@@ -39,7 +42,7 @@ from app.bots.interface import (
     SplitLineDTO,
 )
 from app.core.config import Settings
-from app.services.errors import ServiceError
+from app.services.errors import ConflictError, ServiceError
 from app.services.expense_service import ExpenseService
 
 logger = logging.getLogger(__name__)
@@ -80,6 +83,10 @@ class AiogramEngine(BotEngine):
         self.router.callback_query.register(
             self._on_callback,
             F.data == "balance:refresh",
+        )
+        self.router.callback_query.register(self._on_review, F.data.startswith("expense:"))
+        self.router.message.register(
+            self._on_edit_reply, F.text, F.reply_to_message.text.startswith("UC05 ")
         )
         self.dp.include_router(self.router)
 
@@ -235,11 +242,6 @@ class AiogramEngine(BotEngine):
             )
             return
 
-        edit_url = (
-            f"https://t.me/{self.username}?startapp=expense_{created.expense_id}"
-            if self.username
-            else ""
-        )
         card = ConfirmationCardDTO(
             expense_id=created.expense_id,
             version=created.version,
@@ -253,7 +255,6 @@ class AiogramEngine(BotEngine):
                 for s in created.splits
             ),
             review_deadline=created.review_deadline,
-            miniapp_edit_url=edit_url,
             extraction_source=created.extraction_source,
         )
         await message.answer(
@@ -290,3 +291,84 @@ class AiogramEngine(BotEngine):
                 balance_text(),
                 reply_markup=self._balance_keyboard(),
             )
+
+    async def _on_review(self, callback: CallbackQuery) -> None:
+        message = callback.message
+        if not isinstance(message, Message):
+            await callback.answer("Expense card unavailable.", show_alert=True)
+            return
+        try:
+            _, action, raw_id, revision = (callback.data or "").split(":")
+            card = await self._expense_service.review(
+                expense_id=uuid.UUID(raw_id),
+                version=int(revision),
+                action=action,
+                telegram_chat_id=message.chat.id,
+                telegram_user_id=callback.from_user.id,
+            )
+        except ConflictError as exc:
+            await callback.answer(exc.message, show_alert=True)
+            card = await self._expense_service.review(
+                expense_id=uuid.UUID(raw_id),
+                version=int(revision),
+                action="refresh",
+                telegram_chat_id=message.chat.id,
+                telegram_user_id=callback.from_user.id,
+            )
+            await self._refresh_card(message.chat.id, message.message_id, card)
+            return
+        except (ValueError, ServiceError) as exc:
+            await callback.answer(
+                str(exc) if isinstance(exc, ServiceError) else "Outdated expense button.",
+                show_alert=True,
+            )
+            return
+        await callback.answer()
+        if action == "edit":
+            await message.answer(
+                f"UC05 {card.expense_id} {card.version} {message.message_id} "
+                f"{callback.from_user.id}"
+                "\nReply with a corrected description. To replace the amount, payer, or split, "
+                "start with Expense: and enter the full corrected expense as for /new.",
+                reply_markup=ForceReply(force_reply=True),
+            )
+        else:
+            await self._refresh_card(message.chat.id, message.message_id, card)
+
+    async def _on_edit_reply(self, message: Message) -> None:
+        prompt = message.reply_to_message
+        if not prompt or not prompt.from_user or prompt.from_user.id != self.bot.id:
+            return
+        try:
+            _, raw_id, revision, raw_card, editor = prompt.text.splitlines()[0].split()
+            if not message.from_user or message.from_user.id != int(editor):
+                return
+            card_id = int(raw_card)
+            card = await self._expense_service.review(
+                expense_id=uuid.UUID(raw_id),
+                version=int(revision),
+                action="edit",
+                telegram_chat_id=message.chat.id,
+                telegram_user_id=message.from_user.id,
+                description=message.text,
+            )
+        except ValueError:
+            return
+        except ServiceError as exc:
+            await message.answer(escape(exc.message))
+            return
+        await self._refresh_card(message.chat.id, card_id, card)
+
+    async def _refresh_card(self, chat_id: int, message_id: int, card: ConfirmationCardDTO) -> None:
+        try:
+            await self.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=render_confirmation_card_html(card),
+                reply_markup=build_confirmation_keyboard(card)
+                if card.status in ("PENDING", "DISPUTED")
+                else None,
+            )
+        except TelegramBadRequest as exc:
+            if "message is not modified" not in exc.message:
+                raise

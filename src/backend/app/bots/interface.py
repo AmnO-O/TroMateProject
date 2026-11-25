@@ -69,10 +69,10 @@ def build_reject_callback(expense_id: uuid.UUID, version: int) -> str:
     return f"{CALLBACK_PREFIX_EXPENSE_REJECT}:{expense_id}:{version}"
 
 
-def build_edit_callback(expense_id: uuid.UUID) -> str:
+def build_edit_callback(expense_id: uuid.UUID, version: int) -> str:
     """Build fallback callback data for ``[Edit]`` when Mini App deep link is unavailable."""
 
-    return f"{CALLBACK_PREFIX_EXPENSE_EDIT}:{expense_id}"
+    return f"{CALLBACK_PREFIX_EXPENSE_EDIT}:{expense_id}:{version}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,3 +99,6 @@ class ConfirmationCardDTO:
     review_deadline: datetime | None = None
     miniapp_edit_url: str = ""
     extraction_source: str = "fallback"
+    agreed_count: int = 0
+    voter_count: int = 0
+    payer_decision: str = "PENDING"
