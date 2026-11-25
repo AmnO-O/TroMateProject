@@ -43,6 +43,7 @@ def help_text(library: str) -> str:
         "Danh sách lệnh TroMate:\n"
         "/start - Khởi động bot và lấy link mở Mini App\n"
         "/new [nội dung] - Ghi nhận chi tiêu chung (vd: /new Đi chợ 150k chia tao với Nam)\n"
+        "  (Chế độ dự phòng: ghi rõ người tham gia sau 'chia ...', vd: chia tao với Nam)\n"
         "/balance - Xem số dư công nợ (dữ liệu mẫu)\n"
         "/app - Mở giao diện Mini App\n"
         "/help - Xem hướng dẫn này\n\n"

@@ -186,10 +186,12 @@ not crash the webhook process.
 ## Tests and lint
 
 ```bash
-uv run pytest
+uv run --extra all pytest
 uv run ruff check .
 ```
 
+`aiogram` is an optional extra required for the UC01 bot tests (`tests/test_uc01_new_command.py`);
+running `uv run pytest` without `--extra all` (or `--extra aiogram`) skips them.
 The tests use a fake bot engine, so they do not need a real Telegram token or
 network access. Database integration tests (`tests/db/`) are skipped unless
 `TEST_DATABASE_URL` is set; see [Database tests](#database-tests).

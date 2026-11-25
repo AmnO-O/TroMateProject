@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, timedelta, timezone
 from html import escape
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -12,6 +13,8 @@ from app.bots.interface import (
     build_edit_callback,
     build_reject_callback,
 )
+
+_VN_TZ = timezone(timedelta(hours=7))
 
 _STATUS_LABELS: dict[str, str] = {
     "PENDING": "Chờ xác nhận",
@@ -44,7 +47,12 @@ def render_confirmation_card_html(card: ConfirmationCardDTO) -> str:
         lines.append(f"• {escape(split.display_name)}: {split.share_amount:,}đ")
 
     if card.review_deadline is not None:
-        deadline_str = card.review_deadline.strftime("%H:%M %d/%m UTC")
+        deadline_dt = (
+            card.review_deadline.replace(tzinfo=UTC)
+            if card.review_deadline.tzinfo is None
+            else card.review_deadline
+        )
+        deadline_str = deadline_dt.astimezone(_VN_TZ).strftime("%H:%M %d/%m (GMT+7)")
         lines.append(f"\n⏳ Hạn xác nhận: {deadline_str}")
     else:
         lines.append("\n🔒 Không tự động xác nhận (bắt buộc 100% thành viên đồng ý)")

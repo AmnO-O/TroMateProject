@@ -86,6 +86,29 @@ async def test_gemini_fallback_on_api_failure() -> None:
     assert result.participant_hints == ["tao", "Bình"]
 
 
+async def test_fallback_strips_leading_payer_from_description() -> None:
+    adapter = AIExtractionAdapter(api_key="")
+
+    pho = await adapter.extract("Nam trả 90k tiền phở")
+    assert pho is not None
+    assert pho.raw_amount == "90k"
+    assert pho.payer_hint == "Nam"
+    assert pho.description == "tiền phở"
+
+    pho_split = await adapter.extract("Nam trả 90k tiền phở chia tao với Nam")
+    assert pho_split is not None
+    assert pho_split.description == "tiền phở"
+    assert pho_split.participant_hints == ["tao", "Nam"]
+
+    no_desc = await adapter.extract("Nam trả 90k")
+    assert no_desc is not None
+    assert no_desc.description == "Chi tiêu chung"
+
+
+@pytest.mark.skipif(
+    os.environ.get("RUN_LIVE_GEMINI") != "1",
+    reason="Set RUN_LIVE_GEMINI=1 to run live Gemini API benchmark",
+)
 async def test_gemini_vs_fallback_benchmark() -> None:
     api_key = _load_gemini_key_from_env()
     if not api_key:

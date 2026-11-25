@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import Any
 
@@ -110,13 +111,17 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
     return _session_factory
 
 
-async def warmup_engine() -> None:
+async def warmup_engine(timeout_s: float = 5.0) -> None:
     """Run ``SELECT 1`` on startup to warm the Neon TCP/TLS pool before first request."""
 
     if not get_database_settings().database_url:
         return
-    async with get_engine().connect() as conn:
-        await conn.execute(text("SELECT 1"))
+
+    async def _ping() -> None:
+        async with get_engine().connect() as conn:
+            await conn.execute(text("SELECT 1"))
+
+    await asyncio.wait_for(_ping(), timeout=timeout_s)
 
 
 async def dispose_engine() -> None:
