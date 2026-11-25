@@ -63,6 +63,7 @@ class Settings(DatabaseSettings):
 
     # Google Gemini (AI Extraction Adapter). Empty means the rule-based VND parser fallback is used.
     gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.5-flash-lite"
 
     @field_validator("log_level")
     @classmethod

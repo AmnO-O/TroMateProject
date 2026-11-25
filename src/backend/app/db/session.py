@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -107,6 +109,19 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
     if _session_factory is None:
         _session_factory = create_session_factory(get_engine())
     return _session_factory
+
+
+async def warmup_engine(timeout_s: float = 5.0) -> None:
+    """Run ``SELECT 1`` on startup to warm the Neon TCP/TLS pool before first request."""
+
+    if not get_database_settings().database_url:
+        return
+
+    async def _ping() -> None:
+        async with get_engine().connect() as conn:
+            await conn.execute(text("SELECT 1"))
+
+    await asyncio.wait_for(_ping(), timeout=timeout_s)
 
 
 async def dispose_engine() -> None:

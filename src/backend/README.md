@@ -16,13 +16,18 @@ and a services layer (SCRUM-122). See [Database](#database).
 - Official `initData` validation (HMAC-SHA256, `WebAppData`, `auth_date`
   freshness, duplicate-key rejection, `signature` included in the HMAC).
 - Three bot adapters selected by `BOT_LIBRARY=ptb|aiogram|telebot`:
-  - `/start`, `/balance`, `/app`, `/help`
-  - inline “Refresh balances” callback
+  - `/start`, `/balance`, `/app`, `/help` (Vietnamese help text in `common.py`)
+  - `/new [text]` (`AiogramEngine` — UC01 + UC03b expense logging in group chats)
+  - inline “Refresh balances” callback and UC01 inline confirmation card (`[✓ Đồng ý]`, `[✕ Từ chối]`, `[✎ Chỉnh sửa]`)
   - private-chat `web_app` button
   - group direct-link button
   - a dev-only `/slow` command for ACK/concurrency checks
+- UC01 natural-language extraction & split parsing (SCRUM-123):
+  - `AIExtractionAdapter` (`gemini-3.5-flash-lite` via `GEMINI_API_KEY`) with automatic fallback to rule-based `vnd_parser.py`
+  - `ExpenseParser` (VND slang normalization `k`/`nghìn`/`lít`/`tr`/`củ`, equal & `CUSTOM_AMOUNT` splits, §2.5.3 remainder absorption)
+  - `ExpenseService` (single-`UnitOfWork` persistence with `RoomService.ensure_room_and_member_in_uow`, `BR02` manual approval for `Rent`/`Utilities`)
 - Webhook management script and a dev-only signed `initData` generator.
-- Automated tests for the validator, webhook authentication, and API.
+- Automated tests for the validator, webhook authentication, API, UC01 parser/extractor, and `/new` bot flow.
 
 ## Requirements
 
@@ -181,10 +186,12 @@ not crash the webhook process.
 ## Tests and lint
 
 ```bash
-uv run pytest
+uv run --extra all pytest
 uv run ruff check .
 ```
 
+`aiogram` is an optional extra required for the UC01 bot tests (`tests/test_uc01_new_command.py`);
+running `uv run pytest` without `--extra all` (or `--extra aiogram`) skips them.
 The tests use a fake bot engine, so they do not need a real Telegram token or
 network access. Database integration tests (`tests/db/`) are skipped unless
 `TEST_DATABASE_URL` is set; see [Database tests](#database-tests).
@@ -217,11 +224,19 @@ work through the ORM models.
 
 ```text
 app/
-├── main.py                 # create_app, lifespan, routes
+├── main.py                 # create_app, lifespan (SELECT 1 DB warmup), routes
 ├── api/                    # Routers: FastAPI endpoints (health, webhook, Mini App)
-├── bots/                   # Routers: Telegram bot adapters (BotEngine interface)
+├── bots/                   # Routers: Telegram bot adapters & UC01 confirmation card
+│   ├── aiogram_bot.py      # /start, /new, /balance, /app, /help handlers
+│   ├── expense_card.py     # HTML card renderer + [✓ Đồng ý]/[✕ Từ chối]/[✎ Chỉnh sửa]
+│   └── interface.py        # Command specs, DTOs, callback builders, Protocols
+├── adapters/               # External NLU & fallback extractors
+│   ├── ai_extraction.py    # Google Gemini API adapter (gemini-3.5-flash-lite)
+│   └── vnd_parser.py       # Rule-based Vietnamese VND extractor (fallback)
 ├── services/               # Business rules, one class per use-case area
 │   ├── errors.py           # NotFound / PermissionDenied / Conflict (409) / Validation
+│   ├── expense_parser.py   # VND slang normalization, equal/custom splits (§2.5.3)
+│   ├── expense_service.py  # UC01 orchestration in one UnitOfWork + BR02 check
 │   └── room_service.py     # rooms, members, default categories
 ├── repositories/           # Persistence only: queries and writes, never commit
 │   ├── room_repository.py      # users, rooms, room_members, categories
@@ -230,7 +245,7 @@ app/
 ├── db/                     # ORM models and Unit of Work
 │   ├── base.py             # DeclarativeBase, naming convention, UUID/created_at mixins
 │   ├── enums.py            # statuses and other VARCHAR+CHECK enumerations
-│   ├── session.py          # async engine (asyncpg), Neon URL handling
+│   ├── session.py          # async engine (asyncpg), Neon URL handling, warmup_engine()
 │   ├── unit_of_work.py     # one AsyncSession per use case, commit once
 │   └── models/             # one *_model.py per table
 ├── core/                   # config, initData validator, logging
@@ -243,6 +258,14 @@ alembic/                    # migrations (alembic/versions/*.py)
 | Routers (`api/`, `bots/`) | Services | Run SQL or open sessions |
 | Services | `UnitOfWork` repositories, adapters, other services | Import FastAPI/aiogram, touch `AsyncSession` |
 | Repositories | ORM models, the session | Hold business rules, commit |
+
+### UC01 Expense Logging & Parser (SCRUM-123)
+
+- **Trigger (`/new [text]`):** Because Telegram Group Privacy Mode is enabled by default and to avoid unnecessary Gemini calls on casual chatter, `AiogramEngine` triggers UC01 on `/new <natural Vietnamese text>` in group chats.
+- **Extraction (`AIExtractionAdapter`):** Uses Google Gemini (`gemini-3.5-flash-lite`) when `GEMINI_API_KEY` is configured and falls back automatically to `vnd_parser.py` when the key is missing, rate-limited, or unreachable.
+- **Parsing (`ExpenseParser`):** Accepts `RawExtractionResult` directly, normalizes Vietnamese currency slang (`k`, `nghìn`, `lít`, `tr`, `củ rưỡi`, `150.000đ`), validates `share_amount > 0` (BR05), and applies the deterministic remainder rule (§2.5.3: remainder `Total % N` goes to the payer if participating, otherwise the first participant sorted by `display_name` A–Z).
+- **Persistence (`ExpenseService`):** Resolves `Room` + sender membership in RAM (via eager-loaded `room.members`) and writes the `PENDING` expense + `ExpenseSplit` rows in **one `UnitOfWork`**. `Rent` and `Utilities` expenses set `review_deadline = None` for manual unanimous approval (BR02).
+- **Startup DB Warmup:** `main.py` runs `warmup_engine()` (`SELECT 1`) on startup outside `test` env to avoid first-request Neon TLS cold-pool latency.
 
 ## Database
 

@@ -12,7 +12,7 @@ from app.bots.base import BotEngine
 from app.bots.factory import create_engine
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
-from app.db.session import dispose_engine
+from app.db.session import dispose_engine, warmup_engine
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -34,6 +34,8 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         configure_logging(settings.log_level)
+        if settings.app_env != "test":
+            await warmup_engine()
         bot_engine = engine or create_engine(settings)
         await bot_engine.startup()
         app.state.bot_engine = bot_engine

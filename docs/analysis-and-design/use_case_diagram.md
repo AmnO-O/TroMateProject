@@ -47,6 +47,8 @@ This document provides a detailed specification of the Use-Case Model for **TroM
   * **Scenario C (Custom Named Split / Partial Group):** 
     * *Input Example:* `"Hùng ăn 30k, Nam 20k tiền nước ngọt"`
     * *System Behavior:* Parses multi-person specific amounts, assigning explicit debt balances to Hùng (30k) and Nam (20k) payable to the message sender.
+* **Technical Limitation & Implementation Note (`/new` Command — SCRUM-123):**
+  * Due to **Telegram Group Privacy Mode** (bots do not receive non-command group messages unless granted group Admin permissions or disabling privacy mode globally in `@BotFather`) and to avoid unnecessary Gemini API calls/false positives on casual group chatter, the MVP bot triggers UC01 via the explicit **`/new <natural language text>`** command (e.g., `/new Tiền lẩu hồi trưa 200k nha ae`). The text after `/new` is still parsed as unstructured Vietnamese via `AIExtractionAdapter` + `ExpenseParser`.
 
 ---
 
