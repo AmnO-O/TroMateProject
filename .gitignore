@@ -44,3 +44,6 @@ docs/test/*.md
 
 # Office lock files
 ~$*
+
+# Course templates (local reference only)
+docs/test/Test Cases Template v1.1.xlsx
