@@ -19,6 +19,7 @@ EXPECTED_TABLES = {
     "categories",
     "attachments",
     "expenses",
+    "expense_deliveries",
     "expense_splits",
     "expense_approvals",
     "payments",
@@ -81,9 +82,7 @@ def test_room_review_timeout_column_is_nullable_with_no_default() -> None:
 
 
 def test_room_review_timeout_check_constraint_allows_null_or_1_to_30_days() -> None:
-    constraints = {
-        c.name: c for c in Room.__table__.constraints if isinstance(c, CheckConstraint)
-    }
+    constraints = {c.name: c for c in Room.__table__.constraints if isinstance(c, CheckConstraint)}
     ck = constraints["ck_rooms_review_timeout_allowed"]
     sql = str(ck.sqltext)
     assert "IS NULL" in sql
@@ -97,7 +96,10 @@ def test_alembic_single_head_for_v3_room_window() -> None:
     config.set_main_option("script_location", str(backend_dir / "alembic"))
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_heads() == ["a3c7e91f4b20"]
+    assert script.get_heads() == ["uc05creatorvote"]
+    assert script.get_revision("uc05creatorvote").down_revision == "uc05delivery"
+    assert script.get_revision("uc05delivery").down_revision == "uc01uc05merge"
+    assert set(script.get_revision("uc01uc05merge").down_revision) == {"124draft", "a3c7e91f4b20"}
     rev = script.get_revision("a3c7e91f4b20")
     assert rev is not None
     assert rev.down_revision == "bd5bbd1d9957"

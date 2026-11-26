@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
+from contextlib import suppress
 from dataclasses import replace
 from html import escape
 from typing import Any
@@ -11,6 +12,7 @@ import httpx
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import (
     BotCommand,
@@ -48,8 +50,8 @@ from app.bots.interface import (
     SplitLineDTO,
 )
 from app.core.config import Settings
-from app.services.errors import ServiceError
-from app.services.expense_service import ExpenseDraft, ExpenseService
+from app.services.errors import ConflictError, ServiceError
+from app.services.expense_service import ExpenseDraft, ExpenseReview, ExpenseService
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +72,8 @@ class AiogramEngine(BotEngine):
         )
         self.dp = Dispatcher()
         self.router = Router()
+        self._delivery_event = asyncio.Event()
+        self._delivery_task = None
         self._tasks = TaskTracker("app.bots.aiogram_bot")
         self._http_client = httpx.AsyncClient(timeout=10.0)
         # shortcut: in-memory draft store is lost on restart and not shared across workers; upgrade
@@ -102,6 +106,7 @@ class AiogramEngine(BotEngine):
             self._on_callback,
             F.data == "balance:refresh",
         )
+        self.router.callback_query.register(self._on_review, F.data.startswith("expense:"))
         self.dp.include_router(self.router)
 
     async def startup(self) -> None:
@@ -158,16 +163,120 @@ class AiogramEngine(BotEngine):
             except Exception:
                 logger.exception("aiogram: failed to configure the webhook")
 
+        self._delivery_task = asyncio.create_task(self._delivery_loop())
         logger.info("aiogram engine ready as @%s", self.username)
 
     async def shutdown(self) -> None:
+        if self._delivery_task:
+            self._delivery_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._delivery_task
         await self._tasks.shutdown()
         await self._http_client.aclose()
         await self.bot.session.close()
 
+    @property
+    def expense_service(self):
+        return self._expense_service
+
+    async def resolve_room(self, chat_id, *, user_id=None):
+        if await self.expense_service.resolve_room(chat_id, user_id=user_id):
+            self.wake_delivery()
+
+    def wake_delivery(self):
+        self._delivery_event.set()
+
+    async def _delivery_loop(self):
+        while True:
+            self._delivery_event.clear()
+            try:
+                if await self.expense_service.deliver_next(self._deliver):
+                    continue
+            except Exception:
+                logger.exception("Expense delivery worker will retry")
+            with suppress(TimeoutError):
+                await asyncio.wait_for(self._delivery_event.wait(), timeout=5)
+
+    async def _deliver(self, job, expense, review, chat_id, creator):
+        if job.kind == "retire":
+            try:
+                await self.bot.edit_message_text(
+                    "Phiên bản cũ · "
+                    + escape(review.description)
+                    + "\n"
+                    + escape(review.last_change),
+                    chat_id=chat_id,
+                    message_id=job.recipient,
+                    reply_markup=None,
+                )
+            except TelegramBadRequest as exc:
+                if not any(
+                    t in exc.message.lower() for t in ("not modified", "message to edit not found")
+                ):
+                    raise
+            return
+        if job.kind in {"reminder", "notice"}:
+            recipient = job.recipient or creator
+            text = (
+                escape(job.body)
+                if job.kind == "notice"
+                else ("Nhắc xử lý khoản chi đang tranh chấp: " + escape(review.description))
+            )
+            try:
+                await self.bot.send_message(recipient, text)
+            except (TelegramForbiddenError, TelegramBadRequest) as exc:
+                if (
+                    isinstance(exc, TelegramBadRequest)
+                    and "chat not found" not in exc.message.lower()
+                ):
+                    raise
+                await self.bot.send_message(
+                    chat_id, f'<a href="tg://user?id={recipient}">Thông báo</a> · ' + text
+                )
+            return
+        card = self._review_card(chat_id, review)
+        if card.rejection and len(card.rejection) > 1200:
+            card = replace(card, rejection=card.rejection[:1200] + "… Xem đủ lý do trong Mini App.")
+        text = render_confirmation_card_html(card)
+        if review.last_change:
+            text += "\n" + escape(review.last_change)
+        if review.status == "DISPUTED" or expense.card_revision != review.content_revision:
+            text += "\n" + " ".join(
+                f'<a href="tg://user?id={uid}">{escape(name)}</a>' for uid, name in review.mentions
+            )
+        keyboard = (
+            build_confirmation_keyboard(card) if review.status in {"PENDING", "DISPUTED"} else None
+        )
+        previous = expense.card_message_id
+        if previous and expense.card_revision == review.content_revision:
+            try:
+                await self.bot.edit_message_text(
+                    text, chat_id=chat_id, message_id=previous, reply_markup=keyboard
+                )
+                return
+            except TelegramBadRequest as exc:
+                if "not modified" in exc.message.lower():
+                    return
+                if "message to edit not found" not in exc.message.lower():
+                    raise
+                previous = None
+        sent = await self.bot.send_message(chat_id, text, reply_markup=keyboard)
+        expense.card_message_id = sent.message_id
+        expense.card_revision = review.content_revision
+        return previous
+
     async def handle_update(self, payload: dict[str, Any]) -> None:
         update = Update.model_validate(payload, context={"bot": self.bot})
-        self._tasks.spawn(self.dp.feed_update(self.bot, update))
+
+        async def dispatch():
+            message = update.message or (
+                update.callback_query.message if update.callback_query else None
+            )
+            if message and message.chat.type in {"group", "supergroup"}:
+                await self.resolve_room(message.chat.id)
+            await self.dp.feed_update(self.bot, update)
+
+        self._tasks.spawn(dispatch())
 
     def _private_miniapp_keyboard(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
@@ -344,7 +453,9 @@ class AiogramEngine(BotEngine):
         if action == "share":
             self._drafts.pop(draft_id, None)
             try:
-                created = await self._expense_service.share_expense_draft(draft)
+                await self._expense_service.share_expense_draft(
+                    draft, card_message_id=callback.message.message_id
+                )
             except ServiceError as exc:
                 self._store_draft(draft)
                 await callback.answer(
@@ -356,32 +467,7 @@ class AiogramEngine(BotEngine):
                 self._store_draft(draft)
                 raise
 
-            edit_url = (
-                f"https://t.me/{self.username}?startapp=expense_{created.expense_id}"
-                if self.username
-                else ""
-            )
-            card = ConfirmationCardDTO(
-                expense_id=created.expense_id,
-                version=created.version,
-                description=created.description,
-                total_amount=created.total_amount,
-                payer_name=created.payer_name,
-                category_name=created.category_name,
-                status=created.status.value,
-                splits=tuple(
-                    SplitLineDTO(display_name=s.display_name, share_amount=s.share_amount)
-                    for s in created.splits
-                ),
-                review_deadline=created.review_deadline,
-                review_window_minutes=created.review_window_minutes,
-                miniapp_edit_url=edit_url,
-                extraction_source=created.extraction_source,
-            )
-            await callback.message.edit_text(
-                render_confirmation_card_html(card),
-                reply_markup=build_confirmation_keyboard(card),
-            )
+            self.wake_delivery()
             await callback.answer("Đã chia sẻ khoản chi.")
             return
 
@@ -479,3 +565,69 @@ class AiogramEngine(BotEngine):
                 balance_text(),
                 reply_markup=self._balance_keyboard(),
             )
+
+    async def _on_review(self, callback: CallbackQuery) -> None:
+        message = callback.message
+        if not isinstance(message, Message):
+            await callback.answer("Expense card unavailable.", show_alert=True)
+            return
+        try:
+            _, action, raw_id, revision = (callback.data or "").split(":")
+            expense_id, version = uuid.UUID(raw_id), int(revision)
+            if action not in {"agree", "share"}:
+                raise ConflictError("Hãy dùng thẻ mới nhất để thực hiện thao tác này.")
+            await self._expense_service.review(
+                expense_id=expense_id,
+                version=version,
+                action=action,
+                telegram_chat_id=message.chat.id,
+                telegram_user_id=callback.from_user.id,
+            )
+        except ConflictError as exc:
+            await callback.answer(exc.message, show_alert=True)
+            await self.publish_expense(
+                uuid.UUID(raw_id),
+                message.chat.id,
+                callback.from_user.id,
+                fallback=message.message_id,
+            )
+            return
+        except (ValueError, ServiceError) as exc:
+            await callback.answer(
+                exc.message if isinstance(exc, ServiceError) else "Nút này đã cũ.", show_alert=True
+            )
+            return
+        await callback.answer()
+        self.wake_delivery()
+
+    def _expense_url(self, expense_id, chat_id, version):
+        return f"https://t.me/{self.username}?startapp=expense_{expense_id.hex}_{chat_id}_{version}"
+
+    async def publish_expense(self, expense_id, chat_id, user_id, *, fallback=None):
+        await self._expense_service.queue_refresh(expense_id, chat_id, user_id, fallback)
+        self.wake_delivery()
+
+    def _review_card(self, chat_id: int, review: ExpenseReview) -> ConfirmationCardDTO:
+        return ConfirmationCardDTO(
+            miniapp_edit_url=self._expense_url(review.expense_id, chat_id, review.version),
+            split_method=review.split_type.value,
+            balances=review.balances,
+            rejection=review.rejection,
+            expense_id=review.expense_id,
+            version=review.version,
+            description=review.description,
+            total_amount=review.total_amount,
+            payer_name=review.payer_name,
+            category_name=review.category_name,
+            status=review.status.value,
+            splits=tuple(
+                SplitLineDTO(
+                    s.display_name, s.share_amount, s.decision.value if s.decision else "PENDING"
+                )
+                for s in review.splits
+            ),
+            review_deadline=review.review_deadline,
+            agreed_count=review.agreed_count,
+            voter_count=review.voter_count,
+            payer_decision=review.payer_decision.value if review.payer_decision else "PENDING",
+        )

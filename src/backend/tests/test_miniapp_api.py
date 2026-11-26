@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import time
+import uuid
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -108,3 +111,43 @@ async def test_miniapp_page_is_served(client) -> None:
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     assert "TroMate Mini App" in response.text
+
+
+@pytest.mark.asyncio
+async def test_expense_link_checks_signature_intent_and_version(client, settings):
+    fields = base_fields()
+    fields["start_param"] = "expense_12345678123456781234567812345678_-100_3_edit"
+    path = "/api/miniapp/expense"
+    raw = sign_fields(fields, settings.telegram_bot_token)
+    for action, version in [("cancel", 3), ("edit", 2)]:
+        response = await client.post(
+            path, headers={"X-Telegram-Init-Data": raw}, json={"action": action, "version": version}
+        )
+        assert response.status_code == 409
+    response = await client.post(
+        path,
+        headers={"X-Telegram-Init-Data": sign_fields(fields, "other")},
+        json={"action": "refresh", "version": 3},
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_submit_dispute_uses_authenticated_member(client, settings, fake_engine):
+    expense_id = uuid.uuid4()
+    fields = base_fields(start_param=f"expense_{expense_id.hex}_-100_2_reject")
+    fake_engine.resolve_room = AsyncMock()
+    fake_engine.expense_service = SimpleNamespace(
+        review=AsyncMock(side_effect=[{"status": "PENDING"}, {"status": "DISPUTED"}])
+    )
+    fake_engine.wake_delivery = Mock()
+    response = await client.post(
+        "/api/miniapp/expense",
+        headers={"X-Telegram-Init-Data": sign_fields(fields, settings.telegram_bot_token)},
+        json={"action": "reject", "version": 2, "reason": "OTHER", "note": "Sai kỳ"},
+    )
+    assert response.status_code == 200 and response.json()["status"] == "DISPUTED"
+    kwargs = fake_engine.expense_service.review.await_args.kwargs
+    assert kwargs["telegram_user_id"] == 123456789 and kwargs["expense_id"] == expense_id
+    assert kwargs["reason"] == "OTHER" and kwargs["note"] == "Sai kỳ"
+    fake_engine.wake_delivery.assert_called_once_with()

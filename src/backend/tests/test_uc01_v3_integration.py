@@ -27,6 +27,7 @@ from app.services.expense_service import ExpenseService  # noqa: E402
 from tests.test_uc01_new_command import (  # noqa: E402
     _build_fake_service,
     _callback_update,
+    _deliver_shared_cards,
     _FakeExpenseRepo,
     _FakeRoomRepo,
     _FakeRoomService,
@@ -38,12 +39,8 @@ from tests.test_uc01_new_command import (  # noqa: E402
 
 def _build_orm_room_service() -> tuple[ExpenseService, _FakeExpenseRepo, Room, uuid.UUID]:
     room = Room(id=uuid.uuid4(), telegram_chat_id=-100123456, name="P302", members=[])
-    u1 = User(
-        id=uuid.uuid4(), telegram_user_id=9001, display_name="Trần Minh", username="tranminh"
-    )
-    u2 = User(
-        id=uuid.uuid4(), telegram_user_id=9002, display_name="Nguyễn Văn Nam", username="nam"
-    )
+    u1 = User(id=uuid.uuid4(), telegram_user_id=9001, display_name="Trần Minh", username="tranminh")
+    u2 = User(id=uuid.uuid4(), telegram_user_id=9002, display_name="Nguyễn Văn Nam", username="nam")
     m1 = RoomMember(id=uuid.uuid4(), room_id=room.id, user_id=u1.id, user=u1)
     m2 = RoomMember(id=uuid.uuid4(), room_id=room.id, user_id=u2.id, user=u2)
     members = [m1, m2]
@@ -133,6 +130,7 @@ async def test_e2e_new_command_accepts_self_named_payer_and_shares(settings: Set
     saved = expense_repo.saved[0]
     assert saved.payer_member_id == saved.created_by_member_id
     assert saved.total_amount == 150_000
+    await _deliver_shared_cards(engine, fake_edit_text)
     assert len(edited) == 1
     assert "Chờ xác nhận" in edited[0]
 
@@ -261,3 +259,41 @@ async def test_e2e_draft_edit_rejects_other_payer_and_preserves_original_draft(
 
     assert len(expense_repo.saved) == 1
     assert expense_repo.saved[0].total_amount == 120_000
+
+
+async def test_edit_draft_to_utilities_before_share(settings: Settings) -> None:
+    from unittest.mock import AsyncMock
+
+    service, expenses, _ = _build_fake_service(review_timeout_minutes=4320)
+    engine = AiogramEngine(settings, expense_service=service)
+    engine.username = "tromate_bot"
+
+    async def dispatch(data):
+        await engine.dp.feed_update(
+            engine.bot, Update.model_validate(data, context={"bot": engine.bot})
+        )
+
+    try:
+        with (
+            patch.object(Message, "answer", AsyncMock()),
+            patch.object(Message, "edit_text", AsyncMock()),
+            patch.object(CallbackQuery, "answer", AsyncMock()),
+        ):
+            await dispatch(_group_command_update("/new Ăn trưa 120k chia tao với Nam"))
+            (draft_id,) = engine._drafts
+            await dispatch(_callback_update(f"draft:edit:{draft_id}"))
+            await dispatch(
+                _reply_update(
+                    "Tiền điện tháng 10 hết 650k chia đều cả phòng",
+                    reply_to_text=f"UC01 {draft_id}",
+                )
+            )
+            assert engine._drafts[draft_id].category_name == "Utilities"
+            assert not expenses.saved
+            await dispatch(_callback_update(f"draft:share:{draft_id}"))
+            (saved,) = expenses.saved
+            assert saved.status == "PENDING" and saved.review_deadline is None
+            assert saved.version == 1 and saved.approvals[0].member_id == saved.created_by_member_id
+            assert saved.card_message_id is not None
+    finally:
+        await engine.bot.session.close()

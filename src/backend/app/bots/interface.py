@@ -75,10 +75,10 @@ def build_reject_callback(expense_id: uuid.UUID, version: int) -> str:
     return f"{CALLBACK_PREFIX_EXPENSE_REJECT}:{expense_id}:{version}"
 
 
-def build_edit_callback(expense_id: uuid.UUID) -> str:
+def build_edit_callback(expense_id: uuid.UUID, version: int) -> str:
     """Build fallback callback data for ``[Edit]`` when Mini App deep link is unavailable."""
 
-    return f"{CALLBACK_PREFIX_EXPENSE_EDIT}:{expense_id}"
+    return f"{CALLBACK_PREFIX_EXPENSE_EDIT}:{expense_id}:{version}"
 
 
 def build_draft_share_callback(draft_id: uuid.UUID) -> str:
@@ -140,9 +140,15 @@ class ConfirmationCardDTO:
     total_amount: int
     payer_name: str
     category_name: str
-    status: Literal["PENDING", "DISPUTED", "CONFIRMED", "CANCELLED"]
+    status: Literal["DRAFT", "PENDING", "DISPUTED", "CONFIRMED", "CANCELLED"]
     splits: tuple[SplitLineDTO, ...]
     review_deadline: datetime | None = None
     review_window_minutes: int | None = None
     miniapp_edit_url: str = ""
     extraction_source: str = "fallback"
+    agreed_count: int = 0
+    voter_count: int = 0
+    payer_decision: str = "PENDING"
+    split_method: str = ""
+    balances: tuple[tuple[str, int], ...] = ()
+    rejection: str | None = None
