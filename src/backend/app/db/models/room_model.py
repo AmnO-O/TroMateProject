@@ -6,12 +6,15 @@ from sqlalchemy import BigInteger, CheckConstraint, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin, str_enum
-from app.db.enums import REVIEW_WINDOW_MINUTES, PlanType, ReviewDefaultAction
+from app.db.enums import (
+    MAX_REVIEW_WINDOW_MINUTES,
+    MIN_REVIEW_WINDOW_MINUTES,
+    PlanType,
+    ReviewDefaultAction,
+)
 
 if TYPE_CHECKING:
     from app.db.models.room_member_model import RoomMember
-
-_WINDOWS = ", ".join(str(m) for m in REVIEW_WINDOW_MINUTES)
 
 
 class Room(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
@@ -20,8 +23,13 @@ class Room(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "rooms"
     __table_args__ = (
         CheckConstraint("scans_remaining >= 0", name="scans_remaining_non_negative"),
-        # BR03: allowed auto-confirmation windows.
-        CheckConstraint(f"review_timeout_minutes IN ({_WINDOWS})", name="review_timeout_allowed"),
+        # BR03 (v3.0): NULL until adopted via UC13; otherwise 1–30 days in minutes.
+        CheckConstraint(
+            f"review_timeout_minutes IS NULL OR "
+            f"(review_timeout_minutes >= {MIN_REVIEW_WINDOW_MINUTES} "
+            f"AND review_timeout_minutes <= {MAX_REVIEW_WINDOW_MINUTES})",
+            name="review_timeout_allowed",
+        ),
     )
 
     telegram_chat_id: Mapped[int] = mapped_column(BigInteger, unique=True)
@@ -30,7 +38,8 @@ class Room(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         str_enum(PlanType), server_default=text("'FREE'"), default=PlanType.FREE
     )
     scans_remaining: Mapped[int] = mapped_column(server_default=text("10"), default=10)
-    review_timeout_minutes: Mapped[int] = mapped_column(server_default=text("5"), default=5)
+    # BR03 (v3.0): NULL until the room adopts a window via UC13 (1–30 days).
+    review_timeout_minutes: Mapped[int | None] = mapped_column(default=None)
     review_default_action: Mapped[ReviewDefaultAction] = mapped_column(
         str_enum(ReviewDefaultAction),
         server_default=text("'CONFIRM'"),
