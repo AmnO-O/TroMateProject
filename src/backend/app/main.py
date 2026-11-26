@@ -13,6 +13,7 @@ from app.bots.factory import create_engine
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 from app.db.session import dispose_engine, warmup_engine
+from app.services.balance_service import BalanceService
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -28,6 +29,7 @@ async def root() -> RedirectResponse:
 def create_app(
     settings: Settings | None = None,
     engine: BotEngine | None = None,
+    balance_service: BalanceService | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
 
@@ -51,6 +53,7 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.settings = settings
+    app.state.balance_service = balance_service or BalanceService()
     app.include_router(health.router)
     app.include_router(mini_app.router, prefix="/api/miniapp")
     app.include_router(create_webhook_router(settings))
