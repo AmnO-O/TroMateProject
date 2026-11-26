@@ -15,6 +15,10 @@ async def test_first_member_creates_room_with_defaults_and_becomes_rep(uow_facto
 
     assert room.rep.room_created and room.rep.role is MemberRole.ROOM_REP
     assert not room.lan.room_created and room.lan.role is MemberRole.MEMBER
+    async with uow_factory() as uow:
+        created_room = await uow.rooms.get_room(room.room_id)
+        assert created_room is not None
+        assert created_room.review_timeout_minutes is None
     categories = await RoomService(uow_factory).list_active_categories(room.room_id)
     # Seeded in one transaction, so they share created_at and are ordered by name.
     assert [c.name for c in categories] == sorted(DEFAULT_CATEGORIES)
@@ -94,3 +98,22 @@ async def test_ensure_room_and_member_in_uow_new_room_no_missing_greenlet(uow_fa
     assert member_created is True
     assert member.role is MemberRole.ROOM_REP
     assert [m.user.display_name for m in room.members] == ["Cold User"]
+
+
+async def test_room_window_constraint_v3_range(uow_factory) -> None:
+    room = await make_room(uow_factory)
+
+    for valid in (None, 1440, 2160, 43200):
+        async with uow_factory() as uow:
+            loaded = await uow.rooms.get_room(room.room_id)
+            assert loaded is not None
+            loaded.review_timeout_minutes = valid
+            await uow.flush()
+
+    for invalid in (5, 1439, 43201):
+        async with uow_factory() as uow:
+            loaded = await uow.rooms.get_room(room.room_id)
+            assert loaded is not None
+            loaded.review_timeout_minutes = invalid
+            with pytest.raises(IntegrityError):
+                await uow.flush()
