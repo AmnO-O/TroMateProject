@@ -33,7 +33,9 @@ def upgrade():
             SET status = 'CONFIRMED', confirmed_at = now(), review_deadline = NULL,
                 version = version + 1
             WHERE id IN (SELECT expense_id FROM repaired_creator_votes)
-              AND total_amount = (SELECT sum(share_amount) FROM expense_splits WHERE expense_id=e.id)
+              AND total_amount = (
+                  SELECT sum(share_amount) FROM expense_splits WHERE expense_id = e.id
+              )
               AND NOT EXISTS (
                   SELECT 1 FROM expense_splits s
                   WHERE s.expense_id = e.id AND NOT EXISTS (
