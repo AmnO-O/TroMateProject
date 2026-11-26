@@ -4,11 +4,14 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from sqlalchemy import select
 
-from app.db.enums import RejectionReason, ReviewDefaultAction, SplitType
+from app.db.enums import ApprovalDecision, RejectionReason, ReviewDefaultAction, SplitType
+from app.db.models.expense_model import ExpenseDelivery
 from app.repositories.room_repository import RoomRepository
 from app.services.errors import ConflictError, PermissionDeniedError, ValidationError
 from app.services.expense_service import ExpenseEdit, ExpenseService
+from app.services.room_service import RoomService
 from tests.db.conftest import pytestmark  # noqa: F401
 from tests.db.helpers import CHAT_ID, make_expense, make_room
 
@@ -75,7 +78,7 @@ async def test_review_revision_and_ledger(uow_factory):
 async def test_share_edit_reject_cancel(uow_factory):
     room = await make_room(uow_factory)
     service = ExpenseService(uow_factory=uow_factory)
-    draft = await service.log_expense_from_text(
+    draft = await service.prepare_expense_draft(
         telegram_chat_id=CHAT_ID,
         chat_title="P302",
         telegram_user_id=1,
@@ -83,11 +86,11 @@ async def test_share_edit_reject_cancel(uow_factory):
         sender_username=None,
         text="Lunch 100k chia Lan, Minh",
     )
-    assert draft.status == "DRAFT" and draft.review_deadline is None
+    created = await service.share_expense_draft(draft)
 
     async def review(user, action, version, **kwargs):
         return await service.review(
-            expense_id=draft.expense_id,
+            expense_id=created.expense_id,
             version=version,
             action=action,
             telegram_chat_id=CHAT_ID,
@@ -95,10 +98,8 @@ async def test_share_edit_reject_cancel(uow_factory):
             **kwargs,
         )
 
-    with pytest.raises(PermissionDeniedError):
-        await review(2, "share", draft.version)
-    active = await review(1, "share", draft.version)
-    assert active.agreed_count == 1 and active.review_deadline
+    active = await review(1, "refresh", created.version)
+    assert active.agreed_count == 1 and active.review_deadline is None
     category = next(k for k, v in active.categories.items() if v == "Utilities")
     with pytest.raises(PermissionDeniedError):
         await review(2, "edit", active.version)
@@ -122,7 +123,9 @@ async def test_share_edit_reject_cancel(uow_factory):
     assert updated.shares == {room.lan.member_id: 312_000, room.minh.member_id: 168_000}
     assert updated.review_deadline is None
     creator_view = await review(1, "refresh", active.version)
-    assert creator_view.can_cancel and creator_view.can_vote
+    assert creator_view.can_cancel and not creator_view.can_vote
+    with pytest.raises(PermissionDeniedError):
+        await review(1, "reject", updated.version, reason=RejectionReason.WRONG_AMOUNT)
     with pytest.raises(ConflictError):
         await review(1, "edit", active.version)
     with pytest.raises(ValidationError):
@@ -131,10 +134,108 @@ async def test_share_edit_reject_cancel(uow_factory):
         3, "reject", updated.version, reason=RejectionReason.OTHER, note="Sai kỳ"
     )
     assert "Sai kỳ" in disputed.rejection and not disputed.can_edit
-    cancelled = await review(1, "cancel", disputed.version)
+    assert disputed.can_add_reason
+    more = await review(3, "addreason", disputed.version, reason=RejectionReason.DUPLICATE)
+    assert more.status == "DISPUTED" and disputed.rejection in more.rejection
+    assert len(more.rejection.splitlines()) == 2
+    async with uow_factory() as uow:
+        saved = await uow.expenses.get(created.expense_id)
+        assert all(a.expense_version == more.version for a in saved.approvals)
+    cancelled = await review(1, "cancel", more.version)
     assert cancelled.status == "CANCELLED"
     async with uow_factory() as uow:
-        assert not await uow.ledger.list_by_expense(draft.expense_id)
+        assert not await uow.ledger.list_by_expense(created.expense_id)
+
+
+async def test_retry_after_confirmation_does_not_post_ledger_twice(uow_factory, session_factory):
+    room = await make_room(uow_factory)
+    expense = await make_expense(uow_factory, room, deadline=datetime.now(UTC) - timedelta(days=1))
+    service = ExpenseService(uow_factory=uow_factory)
+    await service.resolve_room(CHAT_ID)
+    send = AsyncMock(side_effect=[TimeoutError(), None])
+    assert await service.deliver_next(send)
+    assert not await service.deliver_next(send)
+    async with session_factory.begin() as session:
+        job = (await session.scalars(select(ExpenseDelivery))).one()
+        assert job.attempts == 1
+        job.available_at = datetime.now(UTC) - timedelta(seconds=1)
+    restarted = ExpenseService(uow_factory=uow_factory)
+    assert await restarted.deliver_next(send)
+    assert not await restarted.deliver_next(send)
+    assert send.await_count == 2
+    async with uow_factory() as uow:
+        assert len(await uow.ledger.list_by_expense(expense.id)) == 3
+
+
+async def test_dispute_reminders_repeat_until_cancel(uow_factory, session_factory):
+    room = await make_room(uow_factory)
+    expense = await make_expense(uow_factory, room)
+    service = ExpenseService(uow_factory=uow_factory)
+    args = dict(expense_id=expense.id, telegram_chat_id=CHAT_ID)
+    start = datetime.now(UTC)
+    disputed = await service.review(
+        **args, telegram_user_id=2, version=1, action="reject", reason=RejectionReason.DUPLICATE
+    )
+    sent = []
+
+    async def deliver(job, expense, review, chat_id, creator):
+        sent.append((job.kind, job.recipient or creator))
+
+    async def make_reminder_due():
+        async with session_factory.begin() as session:
+            job = (
+                await session.scalars(
+                    select(ExpenseDelivery).where(ExpenseDelivery.kind == "reminder")
+                )
+            ).one()
+            assert job.available_at >= start + timedelta(days=3)
+            job.available_at = start - timedelta(seconds=1)
+
+    while await service.deliver_next(deliver):
+        pass
+    assert ("notice", 1) in sent and ("reminder", 1) not in sent
+    await make_reminder_due()
+    assert await service.deliver_next(deliver)
+    assert sent[-1] == ("reminder", 1)
+    await service.review(**args, telegram_user_id=1, version=disputed.version, action="cancel")
+    await make_reminder_due()
+    while await service.deliver_next(deliver):
+        pass
+    assert sent.count(("reminder", 1)) == 1
+
+
+async def test_edit_notifies_added_and_removed_members_and_blocks_old_vote(
+    uow_factory, session_factory
+):
+    room = await make_room(uow_factory)
+    new = await RoomService(uow_factory).register_member(
+        telegram_chat_id=CHAT_ID, chat_title="P302", telegram_user_id=4, display_name="An"
+    )
+    expense = await make_expense(uow_factory, room)
+    service = ExpenseService(uow_factory=uow_factory)
+    args = dict(expense_id=expense.id, telegram_chat_id=CHAT_ID, version=1)
+    revised = await service.review(
+        **args,
+        telegram_user_id=1,
+        action="edit",
+        edit=ExpenseEdit(
+            "Groceries",
+            expense.total_amount,
+            expense.category_id,
+            room.rep.member_id,
+            {key: 1 for key in (room.rep.member_id, room.lan.member_id, new.member_id)},
+            SplitType.EQUAL,
+        ),
+    )
+    async with session_factory() as session:
+        notices = list(
+            await session.scalars(select(ExpenseDelivery).where(ExpenseDelivery.kind == "notice"))
+        )
+        assert {n.recipient for n in notices} == {3, 4}
+    with pytest.raises(ConflictError):
+        await service.review(**args, telegram_user_id=3, action="agree")
+    latest = await service.review(**args, telegram_user_id=3, action="refresh")
+    assert latest.version == revised.version and latest.last_change and not latest.can_vote
 
 
 async def test_late_vote_resolves_overdue_once(uow_factory):
@@ -195,7 +296,14 @@ async def test_concurrent_final_votes_post_once(uow_factory):
             action="agree",
         )
 
-    await vote(1)
+    async with uow_factory() as uow:
+        await uow.expenses.upsert_approval(
+            expense_id=expense.id,
+            member_id=room.rep.member_id,
+            decision=ApprovalDecision.AGREE,
+            expense_version=1,
+        )
+        await uow.commit()
     results = await asyncio.gather(vote(2), vote(3))
     assert sorted(result.status.value for result in results) == ["CONFIRMED", "PENDING"]
     async with uow_factory() as uow:
@@ -216,7 +324,14 @@ async def test_failed_post_rolls_back_confirmation(uow_factory, monkeypatch):
             action="agree",
         )
 
-    await vote(1)
+    async with uow_factory() as uow:
+        await uow.expenses.upsert_approval(
+            expense_id=expense.id,
+            member_id=room.rep.member_id,
+            decision=ApprovalDecision.AGREE,
+            expense_version=1,
+        )
+        await uow.commit()
     await vote(2)
     monkeypatch.setattr(service, "_post_ledger", AsyncMock(side_effect=RuntimeError("failed post")))
     with pytest.raises(RuntimeError, match="failed post"):

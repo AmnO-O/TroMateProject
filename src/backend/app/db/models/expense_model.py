@@ -4,7 +4,8 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Index, Text, false, text
+from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Index, Text, false, func, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin, str_enum
@@ -47,6 +48,11 @@ class Expense(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     payer_member_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("room_members.id", ondelete="RESTRICT")
     )
+    dispute_reasons: Mapped[list[str]] = mapped_column(
+        JSONB, default=list, server_default=text("'[]'")
+    )
+    last_change: Mapped[str] = mapped_column(Text, default="", server_default=text("''"))
+    card_revision: Mapped[int] = mapped_column(default=1, server_default=text("1"))
     card_message_id: Mapped[int | None] = mapped_column(BigInteger)
     description: Mapped[str] = mapped_column(Text)
     total_amount: Mapped[int] = mapped_column(BigInteger)  # whole VND
@@ -84,3 +90,17 @@ class Expense(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
+
+class ExpenseDelivery(UUIDPrimaryKeyMixin, Base):
+    """Durable Telegram work queued in the transaction that changes an expense."""
+
+    __tablename__ = "expense_deliveries"
+
+    expense_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("expenses.id", ondelete="CASCADE"))
+    revision: Mapped[int]
+    kind: Mapped[str]
+    recipient: Mapped[int | None] = mapped_column(BigInteger)
+    body: Mapped[str] = mapped_column(Text)
+    available_at: Mapped[datetime] = mapped_column(index=True, server_default=func.now())
+    attempts: Mapped[int] = mapped_column(default=0, server_default=text("0"))

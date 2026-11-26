@@ -352,7 +352,7 @@ with the SCRUM-122 table names and corrections from the Use-case Specification v
 | `ledger_entries.effective_at` | Entries of an overdue expense are dated at its review deadline; `created_at` stays the write time |
 | `expense_splits.share_amount > 0` (ERD `>= 0`) | BR05 |
 | `categories.name` 2–30 chars, unique per room ignoring case; 7 default categories seeded | BR06 |
-| `rooms.review_timeout_minutes IN (5, 15, 30, 60, 360, 720, 1440)` | BR03 |
+| `rooms.review_timeout_minutes IS NULL OR (review_timeout_minutes >= 1440 AND review_timeout_minutes <= 43200)` | BR03 (v3.0: 1–30 days, no default) |
 | At most one `ROOM_REP` per room (partial unique index); the first member becomes Room Rep | BR09 |
 | `webhook_state` singleton row seeded by the migration | Telegram `update_id` deduplication |
 

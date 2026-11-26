@@ -4,7 +4,7 @@ import json
 import time
 import uuid
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -140,7 +140,7 @@ async def test_submit_dispute_uses_authenticated_member(client, settings, fake_e
     fake_engine.expense_service = SimpleNamespace(
         review=AsyncMock(side_effect=[{"status": "PENDING"}, {"status": "DISPUTED"}])
     )
-    fake_engine.publish_expense = AsyncMock()
+    fake_engine.wake_delivery = Mock()
     response = await client.post(
         "/api/miniapp/expense",
         headers={"X-Telegram-Init-Data": sign_fields(fields, settings.telegram_bot_token)},
@@ -150,4 +150,4 @@ async def test_submit_dispute_uses_authenticated_member(client, settings, fake_e
     kwargs = fake_engine.expense_service.review.await_args.kwargs
     assert kwargs["telegram_user_id"] == 123456789 and kwargs["expense_id"] == expense_id
     assert kwargs["reason"] == "OTHER" and kwargs["note"] == "Sai kỳ"
-    fake_engine.publish_expense.assert_awaited_once()
+    fake_engine.wake_delivery.assert_called_once_with()

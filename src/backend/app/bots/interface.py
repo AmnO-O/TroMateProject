@@ -56,6 +56,12 @@ CALLBACK_PREFIX_EXPENSE_REJECT = "expense:reject"
 CALLBACK_PREFIX_EXPENSE_EDIT = "expense:edit"
 CALLBACK_PREFIX_BALANCE_REFRESH = "balance:refresh"
 
+CALLBACK_PREFIX_DRAFT = "draft"
+CALLBACK_PREFIX_DRAFT_SHARE = "draft:share"
+CALLBACK_PREFIX_DRAFT_TURN_OFF = "draft:off"
+CALLBACK_PREFIX_DRAFT_EDIT = "draft:edit"
+CALLBACK_PREFIX_DRAFT_CANCEL = "draft:cancel"
+
 
 def build_agree_callback(expense_id: uuid.UUID, version: int) -> str:
     """Build callback data for ``[Agree]`` within Telegram's 64-byte limit."""
@@ -75,6 +81,30 @@ def build_edit_callback(expense_id: uuid.UUID, version: int) -> str:
     return f"{CALLBACK_PREFIX_EXPENSE_EDIT}:{expense_id}:{version}"
 
 
+def build_draft_share_callback(draft_id: uuid.UUID) -> str:
+    """Build callback data for ``[Share]`` on a UC01 v3.0 draft summary (<= 64 bytes)."""
+
+    return f"{CALLBACK_PREFIX_DRAFT_SHARE}:{draft_id}"
+
+
+def build_draft_turn_off_callback(draft_id: uuid.UUID) -> str:
+    """Build callback data for ``[Turn off auto-confirm]`` on a UC01 v3.0 draft summary."""
+
+    return f"{CALLBACK_PREFIX_DRAFT_TURN_OFF}:{draft_id}"
+
+
+def build_draft_edit_callback(draft_id: uuid.UUID) -> str:
+    """Build callback data for ``[Edit]`` on a UC01 v3.0 draft summary."""
+
+    return f"{CALLBACK_PREFIX_DRAFT_EDIT}:{draft_id}"
+
+
+def build_draft_cancel_callback(draft_id: uuid.UUID) -> str:
+    """Build callback data for ``[Cancel]`` on a UC01 v3.0 draft summary."""
+
+    return f"{CALLBACK_PREFIX_DRAFT_CANCEL}:{draft_id}"
+
+
 @dataclass(frozen=True, slots=True)
 class SplitLineDTO:
     """One participant line displayed inside a confirmation card."""
@@ -82,6 +112,22 @@ class SplitLineDTO:
     display_name: str
     share_amount: int
     decision: Literal["PENDING", "AGREE", "REJECT"] = "PENDING"
+
+
+@dataclass(frozen=True, slots=True)
+class DraftSummaryDTO:
+    """Presentation payload for the UC01 v3.0 inline draft summary before sharing."""
+
+    draft_id: uuid.UUID
+    description: str
+    total_amount: int
+    payer_name: str
+    category_name: str
+    splits: tuple[SplitLineDTO, ...]
+    room_window_minutes: int | None
+    auto_confirm_enabled: bool
+    manual_reason: str | None = None
+    extraction_source: str = "fallback"
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +143,7 @@ class ConfirmationCardDTO:
     status: Literal["DRAFT", "PENDING", "DISPUTED", "CONFIRMED", "CANCELLED"]
     splits: tuple[SplitLineDTO, ...]
     review_deadline: datetime | None = None
+    review_window_minutes: int | None = None
     miniapp_edit_url: str = ""
     extraction_source: str = "fallback"
     agreed_count: int = 0

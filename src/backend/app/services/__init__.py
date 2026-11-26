@@ -14,7 +14,14 @@ from app.services.expense_parser import (
     ParsedExpense,
     normalize_vnd_amount,
 )
-from app.services.expense_service import CreatedExpense, CreatedSplitLine, ExpenseService
+from app.services.expense_service import (
+    MANUAL_ONLY_CATEGORIES,
+    CreatedExpense,
+    CreatedSplitLine,
+    ExpenseDraft,
+    ExpenseService,
+    resolve_auto_confirm_window,
+)
 from app.services.room_service import CategoryInfo, Membership, RoomService
 
 __all__ = [
@@ -22,11 +29,14 @@ __all__ = [
     "ComputedSplit",
     "CreatedExpense",
     "CreatedSplitLine",
+    "ExpenseDraft",
     "ExpenseParser",
     "ExpenseService",
+    "MANUAL_ONLY_CATEGORIES",
     "MemberContext",
     "Membership",
     "ParsedExpense",
     "RoomService",
     "normalize_vnd_amount",
+    "resolve_auto_confirm_window",
 ]

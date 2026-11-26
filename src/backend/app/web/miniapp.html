@@ -533,7 +533,10 @@
             headers: {"Content-Type":"application/json", "X-Telegram-Init-Data":initData},
             body: JSON.stringify(payload)});
           const result = await readJson(response);
-          if (!response.ok) throw Error(typeof result?.detail === "string" ? result.detail : "Không thể cập nhật khoản chi.");
+          if (!response.ok) {
+            const error = Error(typeof result?.detail === "string" ? result.detail : "Không thể cập nhật khoản chi.");
+            error.status = response.status; throw error;
+          }
           return result;
         };
         try {
@@ -544,6 +547,7 @@
           const lines = [states[view.status], view.category_name, "Người trả: " + view.payer_name,
                          formatAmount(view.total_amount), ...view.splits.map(s => s.display_name + ": " + formatAmount(s.share_amount))];
           if (view.rejection) lines.push(view.rejection);
+          if (view.last_change) lines.push(view.last_change);
           if (view.status === "PENDING" && view.review_deadline) {
             const tick = () => {
               const seconds = Math.max(0, Math.ceil((Date.parse(view.review_deadline) - Date.now()) / 1000));
@@ -560,7 +564,7 @@
             feedback.textContent = "Phiên bản đã thay đổi. Hãy mở thẻ mới nhất trong nhóm.";
             return;
           }
-          const allowed = {edit:view.can_edit, reject:view.can_vote, cancel:view.can_cancel};
+          const allowed = {edit:view.can_edit, reject:view.can_vote, addreason:view.can_add_reason, cancel:view.can_cancel};
           if (!allowed[action]) {feedback.textContent = "Chỉ xem."; return;}
           const splitRows = [];
           if (action === "edit") {
@@ -609,12 +613,12 @@
             el("edit-fields").oninput = validate;
             el("expense-mode").onchange = setMode;
             splitRows.forEach(r => r.check.onchange = setMode); setMode();
-          } else if (action === "reject") {
+          } else if (["reject","addreason"].includes(action)) {
             el("reject-fields").hidden = false;
             el("expense-reason").onchange = () => el("note-label").hidden = el("expense-reason").value !== "OTHER";
           }
           submit.hidden = false;
-          submit.textContent = {edit:"Lưu thay đổi",reject:"Gửi khiếu nại",cancel:"Xác nhận hủy khoản chi"}[action];
+          submit.textContent = {edit:"Lưu thay đổi",reject:"Gửi khiếu nại",addreason:"Gửi lý do bổ sung",cancel:"Xác nhận hủy khoản chi"}[action];
           el("expense-form").onsubmit = async event => {
             event.preventDefault(); submit.disabled = true;
             try {
@@ -624,13 +628,18 @@
                 category_id:el("expense-category").value, payer_id:view.payer_id,
                 split_type:el("expense-mode").value,
                 shares:Object.fromEntries(splitRows.filter(r=>r.check.checked).map(r=>[r.id, el("expense-mode").value === "CUSTOM_RATIO" ? Math.round(Number(r.amount.value)*100) : Number(r.amount.value)]))};
-              if (action === "reject") {
+              if (["reject","addreason"].includes(action)) {
                 payload.reason = el("expense-reason").value;
                 payload.note = el("expense-note").value;
               }
               await call(payload);
-              el("expense-form").hidden = true; feedback.textContent = "Đã cập nhật thẻ trong nhóm.";
-            } catch (error) {feedback.textContent = error.message; submit.disabled = false;}
+              el("expense-form").hidden = true; feedback.textContent = "Đã lưu. Bot sẽ cập nhật thông báo trong nhóm.";
+            } catch (error) {
+              if (error.status === 409) {
+                el("expense-form").hidden = true;
+                await openExpense(parameter);
+              } else {feedback.textContent = error.message; submit.disabled = false;}
+            }
           };
         } catch(error) {feedback.textContent = error.message;}
       }

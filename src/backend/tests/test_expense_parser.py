@@ -79,11 +79,11 @@ def test_equal_split_remainder_rules_payer_and_alphabetical() -> None:
     case_a = RawExtractionResult(
         raw_amount="100k",
         description="Mua đồ chung",
-        payer_hint="Nam",
+        payer_hint="sender",
         participant_hints=[],
         split_type="EQUAL",
     )
-    res_a = parser.parse(case_a, sender_member_id=MEMBER_TAO, room_members=ROOM_MEMBERS)
+    res_a = parser.parse(case_a, sender_member_id=MEMBER_NAM, room_members=ROOM_MEMBERS)
     shares_a = {s.member_id: s.share_amount for s in res_a.splits}
     assert shares_a == {
         MEMBER_TAO: 33_333,
@@ -96,16 +96,75 @@ def test_equal_split_remainder_rules_payer_and_alphabetical() -> None:
     case_b = RawExtractionResult(
         raw_amount=100_001,  # type: ignore[arg-type]
         description="Mua đồ hộ",
-        payer_hint="An",
+        payer_hint="sender",
         participant_hints=["Trần Minh", "Nguyễn Văn Nam"],
         split_type="EQUAL",
     )
-    res_b = parser.parse(case_b, sender_member_id=MEMBER_TAO, room_members=ROOM_MEMBERS)
+    res_b = parser.parse(case_b, sender_member_id=MEMBER_AN, room_members=ROOM_MEMBERS)
     shares_b = {s.member_id: s.share_amount for s in res_b.splits}
     assert shares_b == {
         MEMBER_TAO: 50_000,
         MEMBER_NAM: 50_001,
     }
+
+
+async def test_reject_other_member_as_payer_uc03b_af06() -> None:
+    parser = ExpenseParser()
+    extractor = AIExtractionAdapter(api_key="")
+
+    with pytest.raises(ValidationError, match="BR01") as exc_member:
+        parser.parse(
+            RawExtractionResult(
+                raw_amount="90k",
+                description="tiền phở",
+                payer_hint="Nam",
+            ),
+            sender_member_id=MEMBER_TAO,
+            room_members=ROOM_MEMBERS,
+        )
+    assert "Nguyễn Văn Nam" in str(exc_member.value)
+
+    with pytest.raises(ValidationError, match="BR01") as exc_unregistered:
+        parser.parse(
+            RawExtractionResult(
+                raw_amount="200k",
+                description="for dinner",
+                payer_hint="Lan",
+            ),
+            sender_member_id=MEMBER_TAO,
+            room_members=ROOM_MEMBERS,
+        )
+    assert "Lan" in str(exc_unregistered.value)
+
+    extracted_vn = await extractor.extract("Nam trả 90k tiền phở")
+    assert extracted_vn is not None
+    with pytest.raises(ValidationError, match="BR01") as exc_e2e_vn:
+        parser.parse(extracted_vn, sender_member_id=MEMBER_TAO, room_members=ROOM_MEMBERS)
+    assert "Nguyễn Văn Nam" in str(exc_e2e_vn.value)
+
+    extracted_en = await extractor.extract("Lan paid 200k for dinner")
+    assert extracted_en is not None
+    with pytest.raises(ValidationError, match="BR01") as exc_e2e_en:
+        parser.parse(extracted_en, sender_member_id=MEMBER_TAO, room_members=ROOM_MEMBERS)
+    assert "Lan" in str(exc_e2e_en.value)
+
+
+@pytest.mark.parametrize(
+    "payer_hint",
+    ["sender", "tao", "I", "me", "Minh", "Trần Minh", "@tranminh"],
+)
+def test_allow_self_as_payer_by_pronoun_name_or_username(payer_hint: str) -> None:
+    parser = ExpenseParser()
+    parsed = parser.parse(
+        RawExtractionResult(
+            raw_amount="150k",
+            description="coffee",
+            payer_hint=payer_hint,
+        ),
+        sender_member_id=MEMBER_TAO,
+        room_members=ROOM_MEMBERS,
+    )
+    assert parsed.payer_member_id == MEMBER_TAO
 
 
 async def test_direct_feed_subtask1_to_subtask2() -> None:

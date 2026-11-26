@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import uuid
-from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Literal
 
 from sqlalchemy.exc import IntegrityError
 
@@ -20,11 +20,43 @@ from app.db.enums import (
     SourceType,
     SplitType,
 )
-from app.db.models import Expense, ExpenseSplit, LedgerEntry
+from app.db.models import Expense, ExpenseApproval, ExpenseSplit, LedgerEntry, Room
 from app.db.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from app.services.errors import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
 from app.services.expense_parser import ExpenseParser, MemberContext
 from app.services.room_service import RoomService
+
+REASON_LABELS = {
+    "WRONG_AMOUNT": "Sai số tiền",
+    "WRONG_PARTICIPANTS": "Sai thành viên",
+    "NOT_MY_EXPENSE": "Không tham gia",
+    "DUPLICATE": "Trùng khoản chi",
+    "OTHER": "Lý do khác",
+}
+
+MANUAL_ONLY_CATEGORIES: frozenset[str] = frozenset({"Rent", "Utilities"})
+ManualReason = Literal["MANUAL_CATEGORY", "NO_ROOM_WINDOW", "CREATOR_DISABLED", "NON_TEXT"]
+
+
+def resolve_auto_confirm_window(
+    *,
+    source_type: SourceType,
+    category_name: str,
+    room_window_minutes: int | None,
+    auto_confirm_enabled: bool,
+    now: datetime | None = None,
+) -> tuple[int | None, datetime | None]:
+    """Resolve effective auto-confirm window and deadline at share time (BR02, BR03)."""
+
+    if (
+        source_type != SourceType.TEXT
+        or category_name in MANUAL_ONLY_CATEGORIES
+        or room_window_minutes is None
+        or not auto_confirm_enabled
+    ):
+        return None, None
+    effective_now = now or datetime.now(UTC)
+    return room_window_minutes, effective_now + timedelta(minutes=room_window_minutes)
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,8 +67,47 @@ class CreatedSplitLine:
 
 
 @dataclass(frozen=True, slots=True)
+class ExpenseDraft:
+    """In-memory UC01 v3.0 draft summary prepared before the creator clicks Share."""
+
+    draft_id: uuid.UUID
+    room_id: uuid.UUID
+    telegram_chat_id: int
+    chat_title: str
+    creator_telegram_user_id: int
+    creator_member_id: uuid.UUID
+    creator_display_name: str
+    creator_username: str | None
+    description: str
+    total_amount: int
+    payer_member_id: uuid.UUID
+    payer_name: str
+    category_id: uuid.UUID
+    category_name: str
+    split_type: SplitType
+    splits: tuple[CreatedSplitLine, ...]
+    source_type: SourceType
+    room_window_minutes: int | None
+    auto_confirm_eligible: bool
+    auto_confirm_enabled: bool
+    manual_reason: ManualReason | None
+    extraction_source: str
+
+    def with_auto_confirm_disabled(self) -> ExpenseDraft:
+        """Return a copy with auto-confirm disabled while preserving non-creator reasons."""
+
+        return replace(
+            self,
+            auto_confirm_enabled=False,
+            manual_reason=(
+                "CREATOR_DISABLED" if self.manual_reason is None else self.manual_reason
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class CreatedExpense:
-    """Summary of a newly persisted draft expense for bot card rendering."""
+    """Summary of a newly persisted ``PENDING`` expense for bot card rendering."""
 
     expense_id: uuid.UUID
     version: int
@@ -48,7 +119,7 @@ class CreatedExpense:
     splits: tuple[CreatedSplitLine, ...]
     review_deadline: datetime | None
     extraction_source: str
-    split_type: SplitType
+    review_window_minutes: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +152,8 @@ class ExpenseReview:
     categories: dict[uuid.UUID, str]
     can_edit: bool
     can_cancel: bool
+    last_change: str
+    can_add_reason: bool
     can_vote: bool
     split_type: SplitType
     balances: tuple[tuple[str, int], ...]
@@ -99,7 +172,7 @@ class ExpenseEdit:
 
 
 class ExpenseService:
-    """Orchestrates extraction -> parsing -> single-UoW PostgreSQL persistence for UC01."""
+    """Orchestrates extraction -> parsing -> draft summary -> PostgreSQL persistence for UC01."""
 
     def __init__(
         self,
@@ -114,6 +187,62 @@ class ExpenseService:
         self._uow_factory = uow_factory
         self._room_service = room_service or RoomService(uow_factory=uow_factory)
 
+    async def prepare_expense_draft(
+        self,
+        *,
+        telegram_chat_id: int,
+        chat_title: str,
+        telegram_user_id: int,
+        sender_display_name: str,
+        sender_username: str | None,
+        text: str,
+        source_type: SourceType = SourceType.TEXT,
+    ) -> ExpenseDraft | None:
+        """Extract and parse a draft summary without inserting any ``Expense`` row."""
+
+        raw = await self._extractor.extract(text)
+        if raw is None:
+            return None
+
+        async def _once() -> ExpenseDraft:
+            async with self._uow_factory() as uow:
+                _, draft = await self._prepare_draft_in_uow(
+                    uow,
+                    raw=raw,
+                    telegram_chat_id=telegram_chat_id,
+                    chat_title=chat_title,
+                    telegram_user_id=telegram_user_id,
+                    sender_display_name=sender_display_name,
+                    sender_username=sender_username,
+                    source_type=source_type,
+                )
+                await uow.commit()
+                return draft
+
+        try:
+            return await _once()
+        except IntegrityError:
+            return await _once()
+
+    async def share_expense_draft(
+        self,
+        draft: ExpenseDraft,
+        *,
+        card_message_id: int | None = None,
+        now: datetime | None = None,
+    ) -> CreatedExpense:
+        """Persist a prepared draft as ``PENDING``, latching the room window at share time."""
+
+        async with self._uow_factory() as uow:
+            room = await uow.rooms.get_room(draft.room_id)
+            if room is None:
+                raise NotFoundError("Room not found")
+            created = await self._persist_draft_in_uow(
+                uow, room, draft, now=now, card_message_id=card_message_id
+            )
+            await uow.commit()
+            return created
+
     async def log_expense_from_text(
         self,
         *,
@@ -123,34 +252,42 @@ class ExpenseService:
         sender_display_name: str,
         sender_username: str | None,
         text: str,
+        auto_confirm: bool = True,
+        source_type: SourceType = SourceType.TEXT,
+        now: datetime | None = None,
     ) -> CreatedExpense | None:
-        """Extract, parse, and persist a draft expense in a single DB transaction."""
+        """Extract, parse, and persist a ``PENDING`` expense in a single DB transaction."""
 
         raw = await self._extractor.extract(text)
         if raw is None:
             return None
 
-        try:
-            return await self._log_expense_once(
-                raw=raw,
-                telegram_chat_id=telegram_chat_id,
-                chat_title=chat_title,
-                telegram_user_id=telegram_user_id,
-                sender_display_name=sender_display_name,
-                sender_username=sender_username,
-            )
-        except IntegrityError:
-            return await self._log_expense_once(
-                raw=raw,
-                telegram_chat_id=telegram_chat_id,
-                chat_title=chat_title,
-                telegram_user_id=telegram_user_id,
-                sender_display_name=sender_display_name,
-                sender_username=sender_username,
-            )
+        async def _once() -> CreatedExpense:
+            async with self._uow_factory() as uow:
+                room, draft = await self._prepare_draft_in_uow(
+                    uow,
+                    raw=raw,
+                    telegram_chat_id=telegram_chat_id,
+                    chat_title=chat_title,
+                    telegram_user_id=telegram_user_id,
+                    sender_display_name=sender_display_name,
+                    sender_username=sender_username,
+                    source_type=source_type,
+                )
+                if not auto_confirm:
+                    draft = draft.with_auto_confirm_disabled()
+                created = await self._persist_draft_in_uow(uow, room, draft, now=now)
+                await uow.commit()
+                return created
 
-    async def _log_expense_once(
+        try:
+            return await _once()
+        except IntegrityError:
+            return await _once()
+
+    async def _prepare_draft_in_uow(
         self,
+        uow: UnitOfWork,
         *,
         raw: RawExtractionResult,
         telegram_chat_id: int,
@@ -158,92 +295,148 @@ class ExpenseService:
         telegram_user_id: int,
         sender_display_name: str,
         sender_username: str | None,
-    ) -> CreatedExpense:
-        async with self._uow_factory() as uow:
-            room, sender_member, _, _ = await self._room_service.ensure_room_and_member_in_uow(
-                uow,
-                telegram_chat_id=telegram_chat_id,
-                chat_title=chat_title,
-                telegram_user_id=telegram_user_id,
-                display_name=sender_display_name,
-                username=sender_username,
-            )
+        source_type: SourceType,
+    ) -> tuple[Room, ExpenseDraft]:
+        room, sender_member, _, _ = await self._room_service.ensure_room_and_member_in_uow(
+            uow,
+            telegram_chat_id=telegram_chat_id,
+            chat_title=chat_title,
+            telegram_user_id=telegram_user_id,
+            display_name=sender_display_name,
+            username=sender_username,
+        )
 
-            # Reuse eager-loaded room.members directly in RAM (no extra list_members query)
-            member_contexts = [
-                MemberContext(
-                    member_id=m.id,
-                    display_name=m.user.display_name,
-                    username=m.user.username,
+        # Reuse eager-loaded room.members directly in RAM (no extra list_members query)
+        member_contexts = [
+            MemberContext(
+                member_id=m.id,
+                display_name=m.user.display_name,
+                username=m.user.username,
+            )
+            for m in room.members
+        ]
+        names_by_member_id = {m.member_id: m.display_name for m in member_contexts}
+
+        parsed = self._parser.parse(
+            raw,
+            sender_member_id=sender_member.id,
+            room_members=member_contexts,
+        )
+
+        category = await uow.rooms.get_category_by_name(room.id, parsed.category_name)
+        if category is None or category.is_archived:
+            category = await uow.rooms.get_category_by_name(room.id, "Other")
+        if category is None:
+            raise NotFoundError("Default 'Other' category missing for room")
+
+        manual_reason: ManualReason | None
+        if source_type != SourceType.TEXT:
+            eligible, enabled, manual_reason = False, False, "NON_TEXT"
+        elif category.name in MANUAL_ONLY_CATEGORIES:
+            eligible, enabled, manual_reason = False, False, "MANUAL_CATEGORY"
+        elif room.review_timeout_minutes is None:
+            eligible, enabled, manual_reason = False, False, "NO_ROOM_WINDOW"
+        else:
+            eligible, enabled, manual_reason = True, True, None
+
+        draft = ExpenseDraft(
+            draft_id=uuid.uuid4(),
+            room_id=room.id,
+            telegram_chat_id=telegram_chat_id,
+            chat_title=chat_title,
+            creator_telegram_user_id=telegram_user_id,
+            creator_member_id=sender_member.id,
+            creator_display_name=sender_display_name,
+            creator_username=sender_username,
+            description=parsed.description,
+            total_amount=parsed.total_amount,
+            payer_member_id=parsed.payer_member_id,
+            payer_name=names_by_member_id.get(parsed.payer_member_id, sender_display_name),
+            category_id=category.id,
+            category_name=category.name,
+            split_type=parsed.split_type,
+            splits=tuple(
+                CreatedSplitLine(
+                    member_id=split.member_id,
+                    display_name=names_by_member_id.get(split.member_id, "Member"),
+                    share_amount=split.share_amount,
                 )
-                for m in room.members
-            ]
-            names_by_member_id = {m.member_id: m.display_name for m in member_contexts}
+                for split in parsed.splits
+            ),
+            source_type=source_type,
+            room_window_minutes=room.review_timeout_minutes,
+            auto_confirm_eligible=eligible,
+            auto_confirm_enabled=enabled,
+            manual_reason=manual_reason,
+            extraction_source=raw.source,
+        )
+        return room, draft
 
-            parsed = self._parser.parse(
-                raw,
-                sender_member_id=sender_member.id,
-                room_members=member_contexts,
-            )
+    async def _persist_draft_in_uow(
+        self,
+        uow: UnitOfWork,
+        room: Room,
+        draft: ExpenseDraft,
+        *,
+        card_message_id: int | None = None,
+        now: datetime | None = None,
+    ) -> CreatedExpense:
+        # BR03: latch room.review_timeout_minutes at share time so later room changes don't mutate
+        # already-shared expenses.
+        review_window, review_deadline = resolve_auto_confirm_window(
+            source_type=draft.source_type,
+            category_name=draft.category_name,
+            room_window_minutes=room.review_timeout_minutes,
+            auto_confirm_enabled=draft.auto_confirm_enabled,
+            now=now,
+        )
 
-            if parsed.payer_member_id != sender_member.id:
-                raise ValidationError("Người trả phải tự tạo khoản chi.")
+        expense = Expense(
+            card_message_id=card_message_id,
+            room_id=room.id,
+            category_id=draft.category_id,
+            created_by_member_id=draft.creator_member_id,
+            payer_member_id=draft.creator_member_id,
+            description=draft.description,
+            total_amount=draft.total_amount,
+            split_type=draft.split_type,
+            status=ExpenseStatus.PENDING,
+            source_type=draft.source_type,
+            review_window_minutes=review_window,
+            review_deadline=review_deadline,
+            splits=[
+                ExpenseSplit(
+                    member_id=split.member_id,
+                    share_amount=split.share_amount,
+                )
+                for split in draft.splits
+            ],
+            # BR01: creator's agreement is recorded when the expense is shared.
+            approvals=[
+                ExpenseApproval(
+                    member_id=draft.creator_member_id,
+                    decision=ApprovalDecision.AGREE,
+                    expense_version=1,
+                )
+            ],
+        )
+        await uow.expenses.add(expense)
+        if card_message_id is not None:
+            uow.expenses.enqueue(expense)
 
-            category = await uow.rooms.get_category_by_name(room.id, parsed.category_name)
-            if category is None or category.is_archived:
-                category = await uow.rooms.get_category_by_name(room.id, "Other")
-            if category is None:
-                raise NotFoundError("Default 'Other' category missing for room")
-
-            # BR02: Rent and utility bills mandate manual unanimous approval (no timer).
-            if category.name in {"Rent", "Utilities"}:
-                review_window = None
-            else:
-                review_window = room.review_timeout_minutes
-
-            expense = Expense(
-                room_id=room.id,
-                category_id=category.id,
-                created_by_member_id=sender_member.id,
-                payer_member_id=parsed.payer_member_id,
-                description=parsed.description,
-                total_amount=parsed.total_amount,
-                split_type=parsed.split_type,
-                status=ExpenseStatus.DRAFT,
-                source_type=SourceType.TEXT,
-                review_window_minutes=review_window,
-                review_deadline=None,
-                splits=[
-                    ExpenseSplit(
-                        member_id=split.member_id,
-                        share_amount=split.share_amount,
-                    )
-                    for split in parsed.splits
-                ],
-            )
-            await uow.expenses.add(expense)
-            await uow.commit()
-
-            return CreatedExpense(
-                expense_id=expense.id,
-                version=expense.version,
-                description=expense.description,
-                total_amount=expense.total_amount,
-                payer_name=names_by_member_id.get(expense.payer_member_id, sender_display_name),
-                category_name=category.name,
-                status=expense.status,
-                splits=tuple(
-                    CreatedSplitLine(
-                        member_id=split.member_id,
-                        display_name=names_by_member_id.get(split.member_id, "Member"),
-                        share_amount=split.share_amount,
-                    )
-                    for split in parsed.splits
-                ),
-                review_deadline=expense.review_deadline,
-                extraction_source=raw.source,
-                split_type=parsed.split_type,
-            )
+        return CreatedExpense(
+            expense_id=expense.id,
+            version=expense.version,
+            description=expense.description,
+            total_amount=expense.total_amount,
+            payer_name=draft.creator_display_name,
+            category_name=draft.category_name,
+            status=expense.status,
+            splits=draft.splits,
+            review_deadline=expense.review_deadline,
+            extraction_source=draft.extraction_source,
+            review_window_minutes=expense.review_window_minutes,
+        )
 
     async def review(
         self,
@@ -273,11 +466,9 @@ class ExpenseService:
             await uow.commit()
             return result
 
-    @asynccontextmanager
-    async def publication(self, expense_id, chat_id, user_id):
-        """Hold the expense row until its latest snapshot has been delivered to Telegram."""
+    async def queue_refresh(self, expense_id, chat_id, user_id, fallback):
         async with self._uow_factory() as uow:
-            snapshot = await self._review(
+            await self._review(
                 uow,
                 expense_id=expense_id,
                 version=0,
@@ -286,7 +477,9 @@ class ExpenseService:
                 telegram_user_id=user_id,
             )
             expense = await uow.expenses.get(expense_id, for_update=True)
-            yield snapshot, expense
+            if expense.card_message_id is None:
+                expense.card_message_id = fallback
+            uow.expenses.enqueue(expense)
             await uow.commit()
 
     async def _review(
@@ -316,15 +509,17 @@ class ExpenseService:
         creator = actor == expense.created_by_member_id
         if actor is None:
             raise PermissionDeniedError("Bạn không thuộc phòng này.")
+        if action != "refresh" and expense.version != version:
+            raise ConflictError("Khoản chi đã thay đổi. Hãy mở phiên bản mới nhất.")
         if action == "refresh":
             pass
         elif action == "edit":
-            if actor != expense.payer_member_id:
+            if not creator:
                 raise PermissionDeniedError("Chỉ người trả được chỉnh sửa khoản chi.")
-        elif action in {"cancel", "share"}:
+        elif action == "cancel":
             if not creator:
                 raise PermissionDeniedError("Chỉ người tạo được thực hiện thao tác này.")
-        elif actor not in involved:
+        elif creator or actor not in involved:
             raise PermissionDeniedError("Chỉ người liên quan được thực hiện thao tác này.")
         now = datetime.now(UTC)
         if (
@@ -338,11 +533,10 @@ class ExpenseService:
                 raise ConflictError("Khoản chi đã hết hạn.")
         if action != "refresh":
             permitted = {
-                ExpenseStatus.DRAFT: {"edit", "share", "cancel"},
                 ExpenseStatus.PENDING: {"edit", "agree", "reject", "cancel"},
-                ExpenseStatus.DISPUTED: {"edit", "cancel"},
+                ExpenseStatus.DISPUTED: {"edit", "cancel", "addreason"},
             }
-            if expense.version != version or action not in permitted.get(expense.status, set()):
+            if action not in permitted.get(expense.status, set()):
                 raise ConflictError("Khoản chi đã thay đổi. Hãy mở phiên bản mới nhất.")
         votes = {
             a.member_id: a.decision
@@ -351,16 +545,7 @@ class ExpenseService:
         }
         status = expense.status
         changes = {}
-        if action == "share":
-            status = ExpenseStatus.PENDING
-            if actor in involved:
-                votes[actor] = ApprovalDecision.AGREE
-            window = (
-                room.review_timeout_minutes if expense.review_window_minutes is not None else None
-            )
-            changes["review_window_minutes"] = window
-            changes["review_deadline"] = now + timedelta(minutes=window) if window else None
-        elif action == "cancel":
+        if action == "cancel":
             status = ExpenseStatus.CANCELLED
             changes.update(review_deadline=None, cancelled_at=now, cancelled_by_member_id=actor)
         elif action == "edit":
@@ -409,6 +594,35 @@ class ExpenseService:
                 total_amount=edit.total_amount,
                 split_type=edit.split_type,
             )
+            labels = [
+                label
+                for old, new, label in (
+                    (expense.description, edit.description.strip(), "mô tả"),
+                    (expense.total_amount, edit.total_amount, "tổng tiền"),
+                    (expense.category_id, category.id, "danh mục"),
+                    (expense.split_type, edit.split_type, "cách chia"),
+                    (
+                        {sp.member_id: (sp.share_amount, sp.share_ratio) for sp in expense.splits},
+                        {k: (v, ratios.get(k)) for k, v in shares.items()},
+                        "phần chia",
+                    ),
+                )
+                if old != new
+            ]
+            changes["last_change"] = f"Phiên bản {expense.content_revision + 1}: " + (
+                ", ".join(labels) or "đã lưu lại"
+            )
+            changes["dispute_reasons"] = []
+            previous = {sp.member_id for sp in expense.splits}
+            for key in previous.symmetric_difference(shares):
+                if key in members:
+                    change = "được thêm vào" if key in shares else "được bỏ khỏi"
+                    uow.expenses.enqueue(
+                        expense,
+                        "notice",
+                        recipient=members[key].telegram_user_id,
+                        body=f"Bạn {change} khoản chi {edit.description}.",
+                    )
             await uow.expenses.replace_splits(
                 expense,
                 [
@@ -425,13 +639,36 @@ class ExpenseService:
                 changes["review_deadline"] = now + timedelta(minutes=window) if window else None
                 if actor in involved:
                     votes[actor] = ApprovalDecision.AGREE
-        elif action in ("agree", "reject"):
-            if action == "reject":
+        elif action in ("agree", "reject", "addreason"):
+            if action in {"reject", "addreason"}:
                 if reason is None or (reason == RejectionReason.OTHER and not (note or "").strip()):
                     raise ValidationError("Chọn lý do từ chối và giải thích nếu chọn lý do khác.")
                 status = ExpenseStatus.DISPUTED
                 changes["review_deadline"] = None
-            votes[actor] = ApprovalDecision(action.upper())
+                reason_text = f"{members[actor].display_name}: {REASON_LABELS[reason]}"
+                if reason == RejectionReason.OTHER:
+                    reason_text += f" · {note.strip()}"
+                history = list(expense.dispute_reasons or [])
+                if not history and action == "addreason":
+                    for approval in expense.approvals:
+                        if approval.decision == ApprovalDecision.REJECT:
+                            user = members.get(approval.member_id)
+                            label = REASON_LABELS.get(approval.reason_code, "")
+                            history.append(
+                                f"{user.display_name if user else 'Thành viên'}: "
+                                f"{label} {approval.reason_note or ''}".rstrip()
+                            )
+                changes["dispute_reasons"] = [*history, reason_text]
+                uow.expenses.enqueue(
+                    expense,
+                    "notice",
+                    recipient=members[expense.created_by_member_id].telegram_user_id,
+                    body=f"{expense.description} · {reason_text}",
+                )
+                if action == "reject":
+                    uow.expenses.enqueue(expense, "reminder", available_at=now + timedelta(days=3))
+            if action != "addreason":
+                votes[actor] = ApprovalDecision(action.upper())
         if action != "refresh":
             if status == ExpenseStatus.PENDING and all(
                 votes.get(m) == ApprovalDecision.AGREE for m in involved
@@ -458,10 +695,10 @@ class ExpenseService:
                     # A status transition carries existing votes on the same content forward.
                     for approval in expense.approvals:
                         if (
-                            action == "cancel" or approval.member_id != actor
+                            action in {"cancel", "addreason"} or approval.member_id != actor
                         ) and approval.expense_version == version:
                             approval.expense_version = target_version
-            if actor in votes and action != "cancel":
+            if actor in votes and action not in {"cancel", "addreason"}:
                 await uow.expenses.upsert_approval(
                     expense_id=expense_id,
                     member_id=actor,
@@ -470,6 +707,7 @@ class ExpenseService:
                     reason_code=reason,
                     reason_note=note if reason == RejectionReason.OTHER else None,
                 )
+            uow.expenses.enqueue(expense)
             if status == ExpenseStatus.CONFIRMED:
                 await self._post_ledger(uow, expense, now)
         await uow.flush()
@@ -482,14 +720,7 @@ class ExpenseService:
         rejection = next(
             (a for a in expense.approvals if a.decision == ApprovalDecision.REJECT), None
         )
-        reason_labels = {
-            "WRONG_AMOUNT": "Sai số tiền",
-            "WRONG_PARTICIPANTS": "Sai thành viên",
-            "NOT_MY_EXPENSE": "Không tham gia",
-            "DUPLICATE": "Trùng khoản chi",
-            "OTHER": "Lý do khác",
-        }
-        reason_label = reason_labels.get(rejection.reason_code, "") if rejection else ""
+        reason_label = REASON_LABELS.get(rejection.reason_code, "") if rejection else ""
         review = ExpenseReview(
             content_revision=expense.content_revision,
             expense_id=expense_id,
@@ -509,9 +740,11 @@ class ExpenseService:
                 if k in members
             ),
             categories={c.id: c.name for c in await uow.rooms.list_categories(room.id)},
-            can_edit=actor == expense.payer_member_id
+            can_edit=creator
             and status in {ExpenseStatus.DRAFT, ExpenseStatus.PENDING, ExpenseStatus.DISPUTED},
-            can_vote=status == ExpenseStatus.PENDING and actor in involved,
+            last_change=expense.last_change,
+            can_add_reason=status == ExpenseStatus.DISPUTED and not creator and actor in involved,
+            can_vote=status == ExpenseStatus.PENDING and not creator and actor in involved,
             can_cancel=creator
             and status in {ExpenseStatus.PENDING, ExpenseStatus.DISPUTED, ExpenseStatus.DRAFT},
             split_type=expense.split_type,
@@ -520,12 +753,15 @@ class ExpenseService:
             )
             if status == ExpenseStatus.CONFIRMED
             else (),
-            rejection=(
-                f"{names.get(rejection.member_id, 'Thành viên')}: "
-                f"{reason_label} {rejection.reason_note or ''}".strip()
-            )
-            if rejection
-            else None,
+            rejection="\n".join(expense.dispute_reasons or [])
+            or (
+                (
+                    f"{names.get(rejection.member_id, 'Thành viên')}: "
+                    f"{reason_label} {rejection.reason_note or ''}".strip()
+                )
+                if rejection
+                else None
+            ),
             total_amount=expense.total_amount,
             category_name=category.name,
             payer_name=names.get(expense.payer_member_id, "Thành viên"),
@@ -583,15 +819,9 @@ class ExpenseService:
             for approval in expense.approvals:
                 if approval.expense_version == old_version:
                     approval.expense_version = old_version + 1
+            uow.expenses.enqueue(expense)
             if confirm:
                 await self._post_ledger(uow, expense, deadline)
-
-    async def bind_card(self, expense_id, message_id):
-        async with self._uow_factory() as uow:
-            expense = await uow.expenses.get(expense_id, for_update=True)
-            if expense and not expense.card_message_id:
-                expense.card_message_id = message_id
-                await uow.commit()
 
     async def resolve_room(self, chat_id, *, user_id=None):
         """Recheck candidates under their row lock, committing before notifying Telegram."""
@@ -619,3 +849,56 @@ class ExpenseService:
                     resolved.append((expense.id, users[expense.created_by_member_id]))
             await uow.commit()
             return resolved
+
+    async def deliver_next(self, deliver):
+        """Claim one due job. A failed send is retried independently of expense transitions."""
+        now = datetime.now(UTC)
+        async with self._uow_factory() as uow:
+            job = await uow.expenses.next_delivery(now)
+            if job is None:
+                return False
+            expense = await uow.expenses.get(job.expense_id, for_update=True)
+            room = await uow.rooms.get_room(expense.room_id)
+            creator = next(
+                m.user.telegram_user_id
+                for m in room.members
+                if m.id == expense.created_by_member_id
+            )
+            active_reminder = (
+                job.kind == "reminder"
+                and expense.status == ExpenseStatus.DISPUTED
+                and expense.content_revision == job.revision
+            )
+            if job.kind != "reminder" or active_reminder:
+                review = await self._review(
+                    uow,
+                    expense_id=expense.id,
+                    version=expense.version,
+                    action="refresh",
+                    telegram_chat_id=room.telegram_chat_id,
+                    telegram_user_id=creator,
+                )
+                try:
+                    retired = await deliver(job, expense, review, room.telegram_chat_id, creator)
+                except Exception as exc:
+                    import logging
+
+                    logging.getLogger(__name__).warning(
+                        "Expense delivery %s failed (%s)", job.id, type(exc).__name__
+                    )
+                    job.attempts += 1
+                    delay = max(
+                        getattr(exc, "retry_after", 0), min(3600, 5 * 2 ** min(job.attempts, 10))
+                    )
+                    job.available_at = now + timedelta(seconds=delay)
+                    await uow.commit()
+                    return True
+                if retired:
+                    uow.expenses.enqueue(expense, "retire", recipient=retired)
+            if active_reminder:
+                job.available_at = now + timedelta(days=3)
+                job.attempts = 0
+            else:
+                await uow.expenses.finish_delivery(job)
+            await uow.commit()
+            return True

@@ -96,7 +96,7 @@ class EditFields(BaseModel):
 
 
 class ReviewRequest(BaseModel):
-    action: Literal["refresh", "edit", "reject", "cancel", "agree"]
+    action: Literal["refresh", "edit", "reject", "addreason", "cancel", "agree"]
     version: int = Field(ge=1)
     edit: EditFields | None = None
     reason: RejectionReason | None = None
@@ -144,32 +144,10 @@ async def review_expense(
             **review_args,
             action=payload.action,
             edit=fields,
-            reason=payload.reason if payload.action == "reject" else None,
-            note=payload.note if payload.action == "reject" else None,
+            reason=payload.reason if payload.action in {"reject", "addreason"} else None,
+            note=payload.note if payload.action in {"reject", "addreason"} else None,
         )
-        changes = ""
-        if payload.action == "edit":
-            changed = [
-                label
-                for key, label in (
-                    ("description", "mô tả"),
-                    ("total_amount", "tổng tiền"),
-                    ("category_id", "danh mục"),
-                    ("payer_id", "người trả"),
-                    ("shares", "phần chia"),
-                    ("split_type", "cách chia"),
-                )
-                if getattr(before, key) != getattr(result, key)
-            ]
-            changes = f"Phiên bản {result.content_revision} · Đã sửa: " + ", ".join(changed)
-        await engine.publish_expense(
-            expense_id,
-            chat_id,
-            user_id,
-            fresh=payload.action in {"edit", "reject"},
-            changes=changes,
-            revision=result.content_revision if payload.action == "edit" else None,
-        )
+        engine.wake_delivery()
         return jsonable_encoder(result, exclude={"mentions"})
     except ServiceError as exc:
         raise HTTPException(exc.http_status, exc.message) from exc
