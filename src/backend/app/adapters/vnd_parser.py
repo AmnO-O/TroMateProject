@@ -12,7 +12,7 @@ _UNIT_AMOUNT_BODY = (
 _AMOUNT_BODY = rf"{_UNIT_AMOUNT_BODY}|\d{{4,9}}"
 UNIT_AMOUNT_RE = re.compile(rf"(?i)(?<![\w#-])({_UNIT_AMOUNT_BODY})(?!\w)")
 AMOUNT_RE = re.compile(rf"(?i)(?<![\w#-])({_AMOUNT_BODY})(?!\w)")
-PAYER_RE = re.compile(r"(?i)\b([A-Za-zÀ-ỹ0-9_]+)\s+(?:trả|chi|ứng|thanh\s+toán)\b")
+PAYER_RE = re.compile(r"(?i)\b([A-Za-zÀ-ỹ0-9_]+)\s+(?:trả|chi|ứng|thanh\s+toán|paid)\b")
 SPLIT_CLAUSE_RE = re.compile(r"(?i)\b(?:chia|tính\s+tiền|share)\b(.*)$")
 CUSTOM_PAIR_RE = re.compile(
     rf"(?i)\b([A-Za-zÀ-ỹ][A-Za-zÀ-ỹ0-9_]*)\s+({_AMOUNT_BODY})(?!\w)"
@@ -21,6 +21,30 @@ CUSTOM_PAIR_RE = re.compile(
 _ROOM_WIDE_MARKERS = ("cả phòng", "tất cả", "mọi người", "all")
 _STOPWORDS = {"cho", "đều", "nha", "nhé", "nhe", "ạ", "đi", "luôn", "này", "giúp"}
 _IGNORED_PAIR_PREFIXES = {"hết", "tổng", "giá", "tiền", "khoảng", "tầm", "hôm", "tháng", "ngày"}
+_NON_PAYER_WORDS = frozenset(
+    {
+        "ai",
+        "người",
+        "tự",
+        "đã",
+        "vừa",
+        "tiền",
+        "khoản",
+        "phí",
+        "mua",
+        "đi",
+        "cho",
+        "để",
+        "sẽ",
+        "chưa",
+        "không",
+        "phải",
+        "cần",
+        "mới",
+        "for",
+        "to",
+    }
+)
 
 _CATEGORY_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
@@ -100,7 +124,7 @@ def _extract_payer(text: str) -> str:
     if not match:
         return "sender"
     candidate = match.group(1).strip()
-    if candidate.lower() in {"ai", "người", "tự", "đã", "vừa"}:
+    if candidate.lower() in _NON_PAYER_WORDS:
         return "sender"
     return candidate
 
@@ -128,7 +152,7 @@ def _extract_participants(text: str) -> list[str]:
     return participants
 
 
-_NON_PAYER_WORDS = {"ai", "người", "tự", "đã", "vừa", "tiền"}
+_LEADING_NOISE_RE = re.compile(r"(?i)^paid\b\s*")
 _TRAILING_CONNECTOR_RE = re.compile(
     r"(?i)\b(?:hết|tổng(?:\s+cộng)?|giá|tốn|mất|là)\s*$"
 )
@@ -140,6 +164,7 @@ def _strip_description_noise(text: str) -> str:
 
     cleaned = PAYER_RE.sub(_replace_payer, text)
     cleaned = " ".join(cleaned.split()).strip(" :,-.")
+    cleaned = _LEADING_NOISE_RE.sub("", cleaned)
     cleaned = _TRAILING_CONNECTOR_RE.sub("", cleaned)
     return " ".join(cleaned.split()).strip(" :,-.")
 

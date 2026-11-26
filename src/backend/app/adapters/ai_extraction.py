@@ -17,7 +17,8 @@ Return ONLY a JSON object with these keys:
 - is_expense (boolean): true if the message logs an expense, false otherwise.
 - raw_amount (string): total amount token (e.g. "150k", "1 củ rưỡi", "650000").
 - description (string): short expense description in Vietnamese.
-- payer_hint (string): who paid ("sender", "tao", or member name). Default "sender".
+- payer_hint (string): who paid ("sender" if the sender paid or no payer is named; otherwise the
+  exact name of the person stated as having paid, e.g. "Lan"). Default "sender".
 - participant_hints (array of strings): sharing members, or [] if whole room.
 - split_type (string): "EQUAL" or "CUSTOM_AMOUNT".
 - custom_splits (object): member -> amount map when split_type is "CUSTOM_AMOUNT", else {}.

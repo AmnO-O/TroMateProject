@@ -17,7 +17,7 @@ _SLANG_RE = re.compile(
     re.IGNORECASE,
 )
 _THOUSANDS_RE = re.compile(r"^\d{1,3}(?:[.,]\d{3})+$")
-_SELF_PRONOUNS = frozenset({"", "sender", "tao", "tôi", "mình", "tớ"})
+_SELF_PRONOUNS = frozenset({"", "sender", "tao", "tôi", "mình", "tớ", "me", "i"})
 
 _UNIT_MULTIPLIERS: dict[str, int] = {
     "k": 1_000,
@@ -135,11 +135,13 @@ class ExpenseParser:
 
         total_amount = normalize_vnd_amount(extracted.raw_amount)
         member_index = self._build_member_index(room_members)
+        display_names = {m.member_id: m.display_name for m in room_members}
 
-        payer_member_id = self._resolve_member(
+        payer_member_id = self._resolve_payer(
             extracted.payer_hint,
             sender_member_id=sender_member_id,
             member_index=member_index,
+            display_names=display_names,
         )
 
         split_type_upper = extracted.split_type.strip().upper()
@@ -158,7 +160,6 @@ class ExpenseParser:
                 room_members=room_members,
                 member_index=member_index,
             )
-            display_names = {m.member_id: m.display_name for m in room_members}
             splits = self._compute_equal_splits(
                 total_amount,
                 target_ids,
@@ -206,6 +207,27 @@ class ExpenseParser:
                     index[last_token] = member.member_id
 
         return index
+
+    @staticmethod
+    def _resolve_payer(
+        hint: str,
+        *,
+        sender_member_id: uuid.UUID,
+        member_index: dict[str, uuid.UUID],
+        display_names: Mapping[uuid.UUID, str],
+    ) -> uuid.UUID:
+        raw_hint = hint.strip()
+        key = raw_hint.lstrip("@").lower()
+        if key in _SELF_PRONOUNS:
+            return sender_member_id
+        matched_id = member_index.get(key)
+        if matched_id == sender_member_id:
+            return sender_member_id
+        named = display_names.get(matched_id, raw_hint) if matched_id else raw_hint
+        raise ValidationError(
+            f"Chỉ người trực tiếp trả tiền mới có thể ghi nhận khoản chi (BR01). "
+            f"Vui lòng nhờ {named} tự nhập khoản chi này."
+        )
 
     @staticmethod
     def _resolve_member(
