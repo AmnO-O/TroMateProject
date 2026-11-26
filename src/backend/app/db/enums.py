@@ -43,6 +43,7 @@ class ExpenseStatus(StrEnum):
     CONFIRMED and CANCELLED are closed. Only CONFIRMED expenses reach the ledger.
     """
 
+    DRAFT = "DRAFT"
     PENDING = "PENDING"
     DISPUTED = "DISPUTED"
     CONFIRMED = "CONFIRMED"

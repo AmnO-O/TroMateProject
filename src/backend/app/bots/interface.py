@@ -94,7 +94,7 @@ class ConfirmationCardDTO:
     total_amount: int
     payer_name: str
     category_name: str
-    status: Literal["PENDING", "DISPUTED", "CONFIRMED", "CANCELLED"]
+    status: Literal["DRAFT", "PENDING", "DISPUTED", "CONFIRMED", "CANCELLED"]
     splits: tuple[SplitLineDTO, ...]
     review_deadline: datetime | None = None
     miniapp_edit_url: str = ""
@@ -102,3 +102,6 @@ class ConfirmationCardDTO:
     agreed_count: int = 0
     voter_count: int = 0
     payer_decision: str = "PENDING"
+    split_method: str = ""
+    balances: tuple[tuple[str, int], ...] = ()
+    rejection: str | None = None

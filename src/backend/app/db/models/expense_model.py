@@ -47,6 +47,7 @@ class Expense(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     payer_member_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("room_members.id", ondelete="RESTRICT")
     )
+    card_message_id: Mapped[int | None] = mapped_column(BigInteger)
     description: Mapped[str] = mapped_column(Text)
     total_amount: Mapped[int] = mapped_column(BigInteger)  # whole VND
     split_type: Mapped[SplitType] = mapped_column(str_enum(SplitType, length=20))
@@ -63,8 +64,13 @@ class Expense(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     review_window_minutes: Mapped[int | None]
     # True when the room's default action resolved the expense at its deadline (UC06).
     auto_resolved: Mapped[bool] = mapped_column(server_default=false(), default=False)
+    content_revision: Mapped[int] = mapped_column(server_default=text("1"), default=1)
     version: Mapped[int] = mapped_column(server_default=text("1"), default=1)
     confirmed_at: Mapped[datetime | None]
+    cancelled_at: Mapped[datetime | None]
+    cancelled_by_member_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("room_members.id", ondelete="RESTRICT")
+    )
 
     splits: Mapped[list[ExpenseSplit]] = relationship(
         back_populates="expense",

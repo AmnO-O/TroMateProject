@@ -17,7 +17,6 @@ from aiogram.types import (
     BotCommandScopeAllGroupChats,
     BotCommandScopeAllPrivateChats,
     CallbackQuery,
-    ForceReply,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     MenuButtonWebApp,
@@ -43,7 +42,7 @@ from app.bots.interface import (
 )
 from app.core.config import Settings
 from app.services.errors import ConflictError, ServiceError
-from app.services.expense_service import ExpenseService
+from app.services.expense_service import ExpenseReview, ExpenseService
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +84,6 @@ class AiogramEngine(BotEngine):
             F.data == "balance:refresh",
         )
         self.router.callback_query.register(self._on_review, F.data.startswith("expense:"))
-        self.router.message.register(
-            self._on_edit_reply, F.text, F.reply_to_message.text.startswith("UC05 ")
-        )
         self.dp.include_router(self.router)
 
     async def startup(self) -> None:
@@ -151,9 +147,28 @@ class AiogramEngine(BotEngine):
         await self._http_client.aclose()
         await self.bot.session.close()
 
+    @property
+    def expense_service(self):
+        return self._expense_service
+
+    async def resolve_room(self, chat_id, *, user_id=None):
+        for expense_id, creator in await self.expense_service.resolve_room(
+            chat_id, user_id=user_id
+        ):
+            await self.publish_expense(expense_id, chat_id, creator)
+
     async def handle_update(self, payload: dict[str, Any]) -> None:
         update = Update.model_validate(payload, context={"bot": self.bot})
-        self._tasks.spawn(self.dp.feed_update(self.bot, update))
+
+        async def dispatch():
+            message = update.message or (
+                update.callback_query.message if update.callback_query else None
+            )
+            if message and message.chat.type in {"group", "supergroup"}:
+                await self.resolve_room(message.chat.id)
+            await self.dp.feed_update(self.bot, update)
+
+        self._tasks.spawn(dispatch())
 
     def _private_miniapp_keyboard(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
@@ -248,19 +263,28 @@ class AiogramEngine(BotEngine):
             description=created.description,
             total_amount=created.total_amount,
             payer_name=created.payer_name,
+            voter_count=0,
+            miniapp_edit_url=self._expense_url(
+                created.expense_id, message.chat.id, created.version
+            ),
+            split_method=created.split_type.value,
             category_name=created.category_name,
             status=created.status.value,
             splits=tuple(
-                SplitLineDTO(display_name=s.display_name, share_amount=s.share_amount)
+                SplitLineDTO(
+                    display_name=s.display_name,
+                    share_amount=s.share_amount,
+                )
                 for s in created.splits
             ),
             review_deadline=created.review_deadline,
             extraction_source=created.extraction_source,
         )
-        await message.answer(
-            render_confirmation_card_html(card),
-            reply_markup=build_confirmation_keyboard(card),
+        sent = await message.answer(
+            render_confirmation_card_html(card), reply_markup=build_confirmation_keyboard(card)
         )
+        if sent is not None:
+            await self._expense_service.bind_card(created.expense_id, sent.message_id)
 
     async def _on_balance(self, message: Message) -> None:
         await message.answer(balance_text(), reply_markup=self._balance_keyboard())
@@ -299,76 +323,105 @@ class AiogramEngine(BotEngine):
             return
         try:
             _, action, raw_id, revision = (callback.data or "").split(":")
-            card = await self._expense_service.review(
-                expense_id=uuid.UUID(raw_id),
-                version=int(revision),
+            expense_id, version = uuid.UUID(raw_id), int(revision)
+            if action not in {"agree", "share"}:
+                raise ConflictError("Hãy dùng thẻ mới nhất để thực hiện thao tác này.")
+            review = await self._expense_service.review(
+                expense_id=expense_id,
+                version=version,
                 action=action,
                 telegram_chat_id=message.chat.id,
                 telegram_user_id=callback.from_user.id,
             )
         except ConflictError as exc:
             await callback.answer(exc.message, show_alert=True)
-            card = await self._expense_service.review(
-                expense_id=uuid.UUID(raw_id),
-                version=int(revision),
-                action="refresh",
-                telegram_chat_id=message.chat.id,
-                telegram_user_id=callback.from_user.id,
+            await self.publish_expense(
+                uuid.UUID(raw_id),
+                message.chat.id,
+                callback.from_user.id,
+                fallback=message.message_id,
             )
-            await self._refresh_card(message.chat.id, message.message_id, card)
             return
         except (ValueError, ServiceError) as exc:
             await callback.answer(
-                str(exc) if isinstance(exc, ServiceError) else "Outdated expense button.",
-                show_alert=True,
+                exc.message if isinstance(exc, ServiceError) else "Nút này đã cũ.", show_alert=True
             )
             return
         await callback.answer()
-        if action == "edit":
-            await message.answer(
-                f"UC05 {card.expense_id} {card.version} {message.message_id} "
-                f"{callback.from_user.id}"
-                "\nReply with a corrected description. To replace the amount, payer, or split, "
-                "start with Expense: and enter the full corrected expense as for /new.",
-                reply_markup=ForceReply(force_reply=True),
-            )
-        else:
-            await self._refresh_card(message.chat.id, message.message_id, card)
+        await self.publish_expense(
+            review.expense_id,
+            message.chat.id,
+            callback.from_user.id,
+            fallback=message.message_id,
+            fresh=action == "share",
+        )
 
-    async def _on_edit_reply(self, message: Message) -> None:
-        prompt = message.reply_to_message
-        if not prompt or not prompt.from_user or prompt.from_user.id != self.bot.id:
-            return
-        try:
-            _, raw_id, revision, raw_card, editor = prompt.text.splitlines()[0].split()
-            if not message.from_user or message.from_user.id != int(editor):
-                return
-            card_id = int(raw_card)
-            card = await self._expense_service.review(
-                expense_id=uuid.UUID(raw_id),
-                version=int(revision),
-                action="edit",
-                telegram_chat_id=message.chat.id,
-                telegram_user_id=message.from_user.id,
-                description=message.text,
-            )
-        except ValueError:
-            return
-        except ServiceError as exc:
-            await message.answer(escape(exc.message))
-            return
-        await self._refresh_card(message.chat.id, card_id, card)
+    def _expense_url(self, expense_id, chat_id, version):
+        return f"https://t.me/{self.username}?startapp=expense_{expense_id.hex}_{chat_id}_{version}"
 
-    async def _refresh_card(self, chat_id: int, message_id: int, card: ConfirmationCardDTO) -> None:
-        try:
-            await self.bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text=render_confirmation_card_html(card),
-                reply_markup=build_confirmation_keyboard(card)
-                if card.status in ("PENDING", "DISPUTED")
-                else None,
+    async def publish_expense(
+        self, expense_id, chat_id, user_id, *, fallback=None, fresh=False, changes="", revision=None
+    ):
+        async with self._expense_service.publication(expense_id, chat_id, user_id) as (
+            review,
+            expense,
+        ):
+            previous = expense.card_message_id or fallback
+            card = self._review_card(chat_id, review)
+            text = render_confirmation_card_html(card)
+            if changes and revision == review.content_revision:
+                text += "\n" + escape(changes)
+            if fresh and review.status == "DISPUTED":
+                text += "\n" + " ".join(
+                    f'<a href="tg://user?id={user_id}">{escape(name)}</a>'
+                    for user_id, name in review.mentions
+                )
+            keyboard = (
+                build_confirmation_keyboard(card)
+                if card.status in {"DRAFT", "PENDING", "DISPUTED"}
+                else None
             )
-        except TelegramBadRequest as exc:
-            if "message is not modified" not in exc.message:
-                raise
+            if fresh or previous is None:
+                sent = await self.bot.send_message(chat_id, text, reply_markup=keyboard)
+                expense.card_message_id = sent.message_id
+                if previous:
+                    try:
+                        await self.bot.edit_message_reply_markup(
+                            chat_id=chat_id, message_id=previous, reply_markup=None
+                        )
+                    except TelegramBadRequest:
+                        logger.warning("Previous expense card unavailable for retirement")
+            else:
+                try:
+                    await self.bot.edit_message_text(
+                        text, chat_id=chat_id, message_id=previous, reply_markup=keyboard
+                    )
+                except TelegramBadRequest as exc:
+                    if "message is not modified" not in exc.message:
+                        raise
+                expense.card_message_id = previous
+
+    def _review_card(self, chat_id: int, review: ExpenseReview) -> ConfirmationCardDTO:
+        return ConfirmationCardDTO(
+            miniapp_edit_url=self._expense_url(review.expense_id, chat_id, review.version),
+            split_method=review.split_type.value,
+            balances=review.balances,
+            rejection=review.rejection,
+            expense_id=review.expense_id,
+            version=review.version,
+            description=review.description,
+            total_amount=review.total_amount,
+            payer_name=review.payer_name,
+            category_name=review.category_name,
+            status=review.status.value,
+            splits=tuple(
+                SplitLineDTO(
+                    s.display_name, s.share_amount, s.decision.value if s.decision else "PENDING"
+                )
+                for s in review.splits
+            ),
+            review_deadline=review.review_deadline,
+            agreed_count=review.agreed_count,
+            voter_count=review.voter_count,
+            payer_decision=review.payer_decision.value if review.payer_decision else "PENDING",
+        )

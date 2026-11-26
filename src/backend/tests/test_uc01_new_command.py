@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -29,6 +29,7 @@ from app.bots.expense_card import render_confirmation_card_html  # noqa: E402
 from app.bots.interface import ConfirmationCardDTO, SplitLineDTO  # noqa: E402
 from app.core.config import Settings  # noqa: E402
 from app.db.enums import DEFAULT_CATEGORIES, ExpenseStatus  # noqa: E402
+from app.services.errors import ConflictError, PermissionDeniedError  # noqa: E402
 from app.services.expense_service import ExpenseService  # noqa: E402
 from app.services.room_service import RoomService  # noqa: E402
 
@@ -184,7 +185,7 @@ def _load_gemini_key() -> str:
     return ""
 
 
-async def test_new_command_creates_pending_expense_and_inline_card(settings: Settings) -> None:
+async def test_new_command_creates_draft_and_share_button(settings: Settings) -> None:
     service, expense_repo = _build_fake_service(api_key="")
     engine = AiogramEngine(settings, expense_service=service)
     engine.username = "tromate_bot"
@@ -204,7 +205,8 @@ async def test_new_command_creates_pending_expense_and_inline_card(settings: Set
 
     assert len(expense_repo.saved) == 1
     saved = expense_repo.saved[0]
-    assert saved.status == ExpenseStatus.PENDING
+    assert saved.status == ExpenseStatus.DRAFT
+    assert not saved.approvals
     assert saved.total_amount == 150_000
     assert [s.share_amount for s in saved.splits] == [75_000, 75_000]
 
@@ -212,14 +214,11 @@ async def test_new_command_creates_pending_expense_and_inline_card(settings: Set
     html_text, kwargs = captured[0]
     assert "Đi chợ mua thịt cá" in html_text
     assert "150,000đ" in html_text
-    assert "Chờ xác nhận" in html_text
-    assert "Hạn xác nhận:" in html_text
-
+    assert "Bản nháp" in html_text
     keyboard = kwargs["reply_markup"].inline_keyboard[0]
-    assert [btn.text for btn in keyboard] == ["✓ Đồng ý", "✕ Từ chối", "✎ Chỉnh sửa"]
-    assert keyboard[0].callback_data == f"expense:agree:{saved.id}:{saved.version}"
-    assert keyboard[1].callback_data == f"expense:reject:{saved.id}:{saved.version}"
-    assert keyboard[2].callback_data == f"expense:edit:{saved.id}:{saved.version}"
+    assert keyboard[0].callback_data == f"expense:share:{saved.id}:{saved.version}"
+    assert keyboard[1].url.endswith("_edit")
+    assert keyboard[2].url.endswith("_cancel")
 
 
 async def test_new_command_br02_manual_approval_for_utilities_and_rent(settings: Settings) -> None:
@@ -253,8 +252,7 @@ async def test_new_command_br02_manual_approval_for_utilities_and_rent(settings:
     assert utilities_exp.review_deadline is None
     assert utilities_exp.review_window_minutes is None
     assert rent_exp.review_deadline is None
-    assert "Chờ xác nhận (Duyệt thủ công — BR02)" in captured[0]
-    assert "Không tự động xác nhận" in captured[0]
+    assert "Bản nháp" in captured[0]
 
 
 async def test_new_command_category_inference_and_br02_vs_br03(settings: Settings) -> None:
@@ -282,7 +280,8 @@ async def test_new_command_category_inference_and_br02_vs_br03(settings: Setting
     rent_exp, utilities_exp, drink_exp = expense_repo.saved
     assert rent_exp.review_deadline is None
     assert utilities_exp.review_deadline is None
-    assert drink_exp.review_deadline is not None
+    assert drink_exp.review_deadline is None
+    assert drink_exp.review_window_minutes == 5
 
     assert "Danh mục: Rent" in captured[0]
     assert "Danh mục: Utilities" in captured[1]
@@ -396,6 +395,27 @@ async def test_new_command_guards_empty_args_and_private_chat(settings: Settings
     assert "chỉ dùng trong nhóm" in captured[1]
 
 
+def test_confirmation_card_displays_vietnamese_vote_labels() -> None:
+    card = ConfirmationCardDTO(
+        expense_id=uuid.uuid4(),
+        version=2,
+        description="Bữa trưa",
+        total_amount=100_000,
+        payer_name="Hao",
+        category_name="Other",
+        status="DISPUTED",
+        payer_decision="AGREE",
+        voter_count=3,
+        agreed_count=1,
+        splits=(SplitLineDTO("Lan", 50_000, "REJECT"), SplitLineDTO("Minh", 50_000, "PENDING")),
+    )
+    html = render_confirmation_card_html(card)
+    assert "Người trả: Hao · ✓ Đồng ý" in html
+    assert html.count("Hao") == 1
+    assert "Lan: 50,000đ · ✕ Từ chối" in html
+    assert "Minh: 50,000đ · ⏳ Chờ duyệt" in html
+
+
 def test_confirmation_card_formats_deadline_in_gmt_plus_7() -> None:
     card = ConfirmationCardDTO(
         expense_id=uuid.uuid4(),
@@ -494,3 +514,50 @@ async def test_new_command_e2e_latency_fallback_vs_gemini(settings: Settings) ->
         f"\n[UC01 /new E2E Timing] Fallback={fb_ms:.3f} ms vs Gemini={gm_ms:.2f} ms "
         f"(Fallback is {gm_ms / max(fb_ms, 1e-6):,.1f}x faster)"
     )
+
+
+@pytest.mark.parametrize("scenario", ["agree", "share", "stale", "forbidden", "malformed"])
+async def test_on_review_callback(scenario):
+    expense_id = uuid.uuid4()
+    review = SimpleNamespace(expense_id=expense_id, version=2)
+    engine = Mock(spec=AiogramEngine)
+    engine._expense_service = AsyncMock()
+    service_review = engine._expense_service.review
+    service_review.return_value = review
+    message = Mock(spec=Message)
+    message.answer = AsyncMock()
+    message.chat = SimpleNamespace(id=-100)
+    message.message_id = 42
+    action = scenario if scenario in {"agree", "share"} else "agree"
+    callback = SimpleNamespace(
+        message=message,
+        from_user=SimpleNamespace(id=7),
+        answer=AsyncMock(),
+        data=f"expense:{action}:{expense_id}:1",
+    )
+    if scenario == "stale":
+        service_review.side_effect = [ConflictError("Stale"), review]
+    elif scenario == "forbidden":
+        service_review.side_effect = PermissionDeniedError("Forbidden")
+    elif scenario == "malformed":
+        callback.data = "expense:agree"
+
+    await AiogramEngine._on_review(engine, callback)
+
+    if scenario == "malformed":
+        service_review.assert_not_awaited()
+        callback.answer.assert_awaited_once_with("Nút này đã cũ.", show_alert=True)
+    else:
+        args = dict(expense_id=expense_id, version=1, telegram_chat_id=-100, telegram_user_id=7)
+        service_review.assert_any_await(action=action, **args)
+        if scenario == "stale":
+            callback.answer.assert_awaited_once_with("Stale", show_alert=True)
+        elif scenario == "forbidden":
+            callback.answer.assert_awaited_once_with("Forbidden", show_alert=True)
+        else:
+            callback.answer.assert_awaited_once_with()
+    if scenario in {"agree", "share", "stale"}:
+        assert engine.publish_expense.await_args.args == (expense_id, -100, 7)
+        assert engine.publish_expense.await_args.kwargs["fallback"] == 42
+    else:
+        engine.publish_expense.assert_not_awaited()

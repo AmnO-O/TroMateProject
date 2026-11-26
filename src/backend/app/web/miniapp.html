@@ -260,6 +260,15 @@
       [hidden] {
         display: none !important;
       }
+      #expense-form fieldset { border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin: 12px 0; }
+      #expense-form legend { font-weight: 600; padding: 0 4px; }
+      #expense-form label { display: grid; gap: 4px; margin: 10px 0; }
+      #expense-form :is(input:not([type=checkbox]), select, textarea) {
+        width: 100%; min-height: 40px; padding: 6px 10px; border: 1px solid var(--border);
+        border-radius: 6px; background: var(--bg); color: var(--text); font: inherit;
+      }
+      #expense-splits label { grid-template-columns: auto 1fr minmax(70px, 35%); align-items: center; }
+      #expense-form button:disabled { opacity: .55; }
     </style>
   </head>
   <body>
@@ -324,6 +333,32 @@
       </details>
 
       <footer>TroMate backend spike · FastAPI + Telegram Mini App</footer>
+    </main>
+    <main id="expense-screen" lang="vi" hidden>
+      <h1 id="expense-heading">Khoản chi</h1>
+      <p id="expense-summary"></p><p id="expense-time"></p>
+      <form id="expense-form">
+        <fieldset id="edit-fields" hidden>
+          <legend>Thông tin khoản chi</legend>
+          <label>Mô tả <input id="expense-description" maxlength="500"></label>
+          <label>Tổng tiền (đ) <input id="expense-total" type="number" min="1" step="1"></label>
+          <label>Danh mục <select id="expense-category"></select></label>
+          <label>Người trả <output id="expense-payer"></output></label>
+          <label>Cách chia <select id="expense-mode"><option value="EQUAL">Chia đều</option>
+          <option value="CUSTOM_AMOUNT">Theo số tiền</option><option value="CUSTOM_RATIO">Theo tỷ lệ (%)</option></select></label>
+          <fieldset id="expense-splits"><legend>Thành viên và phần chia (đ)</legend></fieldset>
+        </fieldset>
+        <fieldset id="reject-fields" hidden>
+          <legend>Lý do từ chối</legend>
+          <select id="expense-reason"><option value="WRONG_AMOUNT">Sai số tiền</option>
+          <option value="WRONG_PARTICIPANTS">Sai thành viên</option>
+          <option value="NOT_MY_EXPENSE">Không tham gia</option><option value="DUPLICATE">Trùng khoản chi</option>
+          <option value="OTHER">Lý do khác</option></select>
+          <label id="note-label" hidden>Giải thích <textarea id="expense-note" maxlength="300"></textarea></label>
+        </fieldset>
+        <button id="expense-submit" hidden></button>
+      </form>
+      <p role="status" id="expense-feedback"></p>
     </main>
 
     <script>
@@ -462,6 +497,12 @@
           return;
         }
 
+        if (session.start_param?.startsWith("expense_")) {
+          document.querySelector("main").hidden = true;
+          document.getElementById("expense-screen").hidden = false;
+          await openExpense(session.start_param);
+          return;
+        }
         renderUser(session.user);
         renderContext(session);
         setRaw(session);
@@ -480,6 +521,118 @@
         } catch (error) {
           showError("Could not reach the balance API", { error: String(error) });
         }
+      }
+
+      async function openExpense(parameter) {
+        const [, , , linkedVersion, action] = parameter.split("_");
+        const el = id => document.getElementById(id);
+        const feedback = el("expense-feedback");
+        const submit = el("expense-submit");
+        const call = async payload => {
+          const response = await fetch("/api/miniapp/expense", {method: "POST",
+            headers: {"Content-Type":"application/json", "X-Telegram-Init-Data":initData},
+            body: JSON.stringify(payload)});
+          const result = await readJson(response);
+          if (!response.ok) throw Error(typeof result?.detail === "string" ? result.detail : "Không thể cập nhật khoản chi.");
+          return result;
+        };
+        try {
+          const view = await call({action:"refresh", version:Number(linkedVersion)});
+          el("expense-heading").textContent = view.description;
+          const states = {DRAFT:"Bản nháp", PENDING:"Chờ duyệt", DISPUTED:"Đã từ chối",
+                          CONFIRMED:"Đã xác nhận", CANCELLED:"Đã hủy"};
+          const lines = [states[view.status], view.category_name, "Người trả: " + view.payer_name,
+                         formatAmount(view.total_amount), ...view.splits.map(s => s.display_name + ": " + formatAmount(s.share_amount))];
+          if (view.rejection) lines.push(view.rejection);
+          if (view.status === "PENDING" && view.review_deadline) {
+            const tick = () => {
+              const seconds = Math.max(0, Math.ceil((Date.parse(view.review_deadline) - Date.now()) / 1000));
+              el("expense-time").textContent = seconds ? "Thời gian còn lại: " + Math.floor(seconds/60) + " phút " + seconds%60 + " giây" : "Đã đến hạn duyệt.";
+              return seconds;
+            };
+            if (tick()) {
+              const timer = setInterval(() => {if (!tick()) clearInterval(timer);},1000);
+              window.addEventListener("pagehide", () => clearInterval(timer), {once:true});
+            }
+          }
+          el("expense-summary").textContent = lines.join(" · ");
+          if (view.version !== Number(linkedVersion)) {
+            feedback.textContent = "Phiên bản đã thay đổi. Hãy mở thẻ mới nhất trong nhóm.";
+            return;
+          }
+          const allowed = {edit:view.can_edit, reject:view.can_vote, cancel:view.can_cancel};
+          if (!allowed[action]) {feedback.textContent = "Chỉ xem."; return;}
+          const splitRows = [];
+          if (action === "edit") {
+            el("edit-fields").hidden = false;
+            el("expense-description").value = view.description;
+            el("expense-total").value = view.total_amount;
+            for (const [id,name] of Object.entries(view.categories))
+              el("expense-category").add(new Option(name,id,false,id===view.category_id));
+            el("expense-payer").textContent = view.payer_name;
+            for (const [id,name] of Object.entries(view.members)) {
+              const row = document.createElement("label"), check = document.createElement("input");
+              const amount = document.createElement("input");
+              check.type = "checkbox"; check.checked = id in view.shares;
+              amount.type = "number"; amount.min = "1"; amount.step = "1"; amount.value = view.shares[id] || "";
+              row.append(check, document.createTextNode(name), amount);
+              el("expense-splits").append(row); splitRows.push({id,check,amount});
+            }
+            el("expense-mode").value = view.split_type;
+            const validate = () => {
+              const mode = el("expense-mode").value;
+              const total = Number(el("expense-total").value);
+              const active = splitRows.filter(r => r.check.checked);
+              let error = "";
+              if (!active.length) error = "Chọn ít nhất một thành viên.";
+              else if (mode === "EQUAL" && total < active.length) error = "Mỗi phần chia phải lớn hơn 0đ.";
+              else if (mode !== "EQUAL") {
+                const ratio = mode === "CUSTOM_RATIO";
+                const values = active.map(r => Number(r.amount.value));
+                const delta = (ratio ? 10000 : total) - values.reduce((sum,v) => sum + (ratio ? Math.round(v*100) : v),0);
+                if (values.some(v => v <= 0)) error = "Mỗi phần chia phải lớn hơn 0.";
+                else if (delta) error = (delta > 0 ? "Còn thiếu " : "Dư ") + (ratio ? Math.abs(delta)/100 + "%" : formatAmount(Math.abs(delta)));
+              }
+              feedback.textContent = error;
+              submit.disabled = Boolean(error) || !el("expense-description").value.trim() || total <= 0;
+            };
+            const setMode = () => {
+              const mode = el("expense-mode").value;
+              for (const r of splitRows) {
+                r.amount.disabled = mode === "EQUAL" || !r.check.checked;
+                r.amount.step = mode === "CUSTOM_RATIO" ? "0.01" : "1";
+                r.amount.min = r.amount.step;
+              }
+              validate();
+            };
+            if (view.split_type === "CUSTOM_RATIO") splitRows.forEach(r => r.amount.value = (view.ratios[r.id] || 0)/100);
+            el("edit-fields").oninput = validate;
+            el("expense-mode").onchange = setMode;
+            splitRows.forEach(r => r.check.onchange = setMode); setMode();
+          } else if (action === "reject") {
+            el("reject-fields").hidden = false;
+            el("expense-reason").onchange = () => el("note-label").hidden = el("expense-reason").value !== "OTHER";
+          }
+          submit.hidden = false;
+          submit.textContent = {edit:"Lưu thay đổi",reject:"Gửi khiếu nại",cancel:"Xác nhận hủy khoản chi"}[action];
+          el("expense-form").onsubmit = async event => {
+            event.preventDefault(); submit.disabled = true;
+            try {
+              const payload = {action,version:view.version};
+              if (action === "edit") payload.edit = {
+                description:el("expense-description").value, total_amount:Number(el("expense-total").value),
+                category_id:el("expense-category").value, payer_id:view.payer_id,
+                split_type:el("expense-mode").value,
+                shares:Object.fromEntries(splitRows.filter(r=>r.check.checked).map(r=>[r.id, el("expense-mode").value === "CUSTOM_RATIO" ? Math.round(Number(r.amount.value)*100) : Number(r.amount.value)]))};
+              if (action === "reject") {
+                payload.reason = el("expense-reason").value;
+                payload.note = el("expense-note").value;
+              }
+              await call(payload);
+              el("expense-form").hidden = true; feedback.textContent = "Đã cập nhật thẻ trong nhóm.";
+            } catch (error) {feedback.textContent = error.message; submit.disabled = false;}
+          };
+        } catch(error) {feedback.textContent = error.message;}
       }
 
       recheckEl.addEventListener("click", load);
