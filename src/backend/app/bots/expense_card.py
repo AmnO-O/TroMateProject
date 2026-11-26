@@ -9,7 +9,12 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from app.bots.interface import (
     ConfirmationCardDTO,
+    DraftSummaryDTO,
     build_agree_callback,
+    build_draft_cancel_callback,
+    build_draft_edit_callback,
+    build_draft_share_callback,
+    build_draft_turn_off_callback,
     build_edit_callback,
     build_reject_callback,
 )
@@ -22,6 +27,97 @@ _STATUS_LABELS: dict[str, str] = {
     "DISPUTED": "Đã từ chối",
     "CANCELLED": "Đã hủy",
 }
+
+
+def format_review_window(minutes: int) -> str:
+    """Format a review window in minutes into Vietnamese days/hours/minutes."""
+
+    days, rem_minutes = divmod(minutes, 1440)
+    hours, mins = divmod(rem_minutes, 60)
+    parts: list[str] = []
+    if days:
+        parts.append(f"{days} ngày")
+    if hours:
+        parts.append(f"{hours} giờ")
+    if mins or not parts:
+        parts.append(f"{mins} phút")
+    return " ".join(parts)
+
+
+def render_draft_summary_html(summary: DraftSummaryDTO) -> str:
+    """Format the UC01 v3.0 draft summary card shown to the group before sharing."""
+
+    lines = [
+        "📝 <b>Xem lại khoản chi (bản nháp)</b>",
+        f"🧾 <b>{escape(summary.description)}</b>",
+        f"💰 Tổng tiền: <b>{summary.total_amount:,}đ</b>",
+        f"🏷️ Danh mục: {escape(summary.category_name)}",
+        f"👤 Người trả: {escape(summary.payer_name)}",
+        "",
+        "<b>Chi tiết chia tiền:</b>",
+    ]
+    for split in summary.splits:
+        lines.append(f"• {escape(split.display_name)}: {split.share_amount:,}đ")
+
+    if summary.auto_confirm_enabled and summary.room_window_minutes is not None:
+        window_label = format_review_window(summary.room_window_minutes)
+        lines.append(
+            f"\n⏱️ Tự động xác nhận: <b>Bật</b> (window phòng: <b>{window_label}</b>)"
+        )
+    elif summary.manual_reason == "NO_ROOM_WINDOW" or summary.room_window_minutes is None:
+        lines.append(
+            "\n🔒 Tự động xác nhận: <b>Duyệt thủ công</b> — "
+            "Phòng chưa có window auto-confirm (BR03)"
+        )
+    elif summary.manual_reason == "CREATOR_DISABLED":
+        window_label = format_review_window(summary.room_window_minutes)
+        lines.append(
+            "\n🔒 Tự động xác nhận: <b>Đã tắt (Duyệt thủ công)</b> "
+            f"(window phòng: {window_label})"
+        )
+    elif summary.manual_reason == "MANUAL_CATEGORY":
+        lines.append(
+            "\n🔒 Tự động xác nhận: <b>Duyệt thủ công (BR02)</b> — "
+            "Danh mục này luôn cần duyệt thủ công"
+        )
+    else:
+        lines.append(
+            "\n🔒 Tự động xác nhận: <b>Duyệt thủ công (BR02)</b> — "
+            "Khoản chi không phải text cần duyệt thủ công"
+        )
+
+    return "\n".join(lines)
+
+
+def build_draft_summary_keyboard(summary: DraftSummaryDTO) -> InlineKeyboardMarkup:
+    """Build inline buttons for the UC01 v3.0 draft summary."""
+
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text="✓ Chia sẻ",
+                callback_data=build_draft_share_callback(summary.draft_id),
+            ),
+            InlineKeyboardButton(
+                text="✎ Chỉnh sửa",
+                callback_data=build_draft_edit_callback(summary.draft_id),
+            ),
+            InlineKeyboardButton(
+                text="✕ Hủy",
+                callback_data=build_draft_cancel_callback(summary.draft_id),
+            ),
+        ]
+    ]
+    if summary.auto_confirm_enabled:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text="🔕 Tắt tự động xác nhận",
+                    callback_data=build_draft_turn_off_callback(summary.draft_id),
+                )
+            ]
+        )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def render_confirmation_card_html(card: ConfirmationCardDTO) -> str:
