@@ -52,7 +52,7 @@ async def make_expense(
             source_type=SourceType.TEXT,
             status=status,
             review_deadline=deadline,
-            review_window_minutes=5 if deadline else None,
+            review_window_minutes=1440 if deadline else None,
             splits=[
                 ExpenseSplit(member_id=room.rep.member_id, share_amount=total - 2 * share),
                 ExpenseSplit(member_id=room.lan.member_id, share_amount=share),
