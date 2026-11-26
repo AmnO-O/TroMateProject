@@ -118,6 +118,7 @@ async def test_share_edit_reject_cancel(uow_factory):
         ),
     )
     assert updated.version == active.version + 1 and updated.agreed_count == 1
+    assert updated.total_amount == 480_000
     assert updated.content_revision == 2 and active.content_revision == 1
     assert updated.payer_name == "Hao" and updated.category_name == "Utilities"
     assert updated.shares == {room.lan.member_id: 312_000, room.minh.member_id: 168_000}
@@ -260,7 +261,8 @@ async def test_late_vote_resolves_overdue_once(uow_factory):
         assert len(entries) == 3 and all(e.effective_at == deadline for e in entries)
 
 
-async def test_review_missing_payer_and_split_member(uow_factory, monkeypatch):
+@pytest.mark.parametrize("dispute", [False, True], ids=["agree", "reject-and-add-reason"])
+async def test_review_missing_payer_and_split_member(uow_factory, monkeypatch, dispute):
     room = await make_room(uow_factory)
     expense = await make_expense(uow_factory, room)
     async with uow_factory() as uow:
@@ -270,16 +272,25 @@ async def test_review_missing_payer_and_split_member(uow_factory, monkeypatch):
         members=[m for m in members if m.id != room.rep.member_id],
     )
     monkeypatch.setattr(RoomRepository, "get_room_by_chat_id", AsyncMock(return_value=partial_room))
-    card = await ExpenseService(uow_factory=uow_factory).review(
+    service = ExpenseService(uow_factory=uow_factory)
+    args = dict(
         expense_id=expense.id,
-        version=expense.version,
         telegram_chat_id=CHAT_ID,
         telegram_user_id=2,
-        action="agree",
     )
+    if dispute:
+        rejected = await service.review(
+            **args, version=expense.version, action="reject", reason=RejectionReason.WRONG_AMOUNT
+        )
+        card = await service.review(
+            **args, version=rejected.version, action="addreason", reason=RejectionReason.DUPLICATE
+        )
+        assert card.status == "DISPUTED" and len(card.rejection.splitlines()) == 2
+    else:
+        card = await service.review(**args, version=expense.version, action="agree")
+        assert card.agreed_count == 1
     assert card.payer_name == "Thành viên"
     assert {s.display_name for s in card.splits} == {"Thành viên", "Lan", "Minh"}
-    assert card.agreed_count == 1
 
 
 async def test_concurrent_final_votes_post_once(uow_factory):

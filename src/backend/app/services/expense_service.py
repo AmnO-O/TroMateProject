@@ -662,7 +662,6 @@ class ExpenseService:
                 uow.expenses.enqueue(
                     expense,
                     "notice",
-                    recipient=members[expense.created_by_member_id].telegram_user_id,
                     body=f"{expense.description} · {reason_text}",
                 )
                 if action == "reject":
