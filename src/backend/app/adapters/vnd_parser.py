@@ -6,19 +6,18 @@ import re
 from dataclasses import dataclass, field
 
 _UNIT_AMOUNT_BODY = (
-    r"\d+(?:[.,]\d+)?\s*(?:k|nghìn|ngàn|tr|triệu|củ|lít|đ|vnd)(?:\s*rưỡi|\d+)?"
-    r"|\d{1,3}(?:[.,]\d{3})+\s*(?:đ|vnd)?"
+    r"\d+(?:[.,]\d+)?\s*(?:k|nghìn|ngàn|tr|triệu|củ|lít|đ|vnd|đồng)(?:\s*rưỡi|\d+)?"
+    r"|\d{1,3}(?:[.,]\d{3})+\s*(?:đ|vnd|đồng)?"
 )
 _AMOUNT_BODY = rf"{_UNIT_AMOUNT_BODY}|\d{{4,9}}"
 UNIT_AMOUNT_RE = re.compile(rf"(?i)(?<![\w#-])({_UNIT_AMOUNT_BODY})(?!\w)")
 AMOUNT_RE = re.compile(rf"(?i)(?<![\w#-])({_AMOUNT_BODY})(?!\w)")
 PAYER_RE = re.compile(r"(?i)\b([A-Za-zÀ-ỹ0-9_]+)\s+(?:trả|chi|ứng|thanh\s+toán|paid)\b")
 SPLIT_CLAUSE_RE = re.compile(r"(?i)\b(?:chia|tính\s+tiền|share)\b(.*)$")
-CUSTOM_PAIR_RE = re.compile(
-    rf"(?i)\b([A-Za-zÀ-ỹ][A-Za-zÀ-ỹ0-9_]*)\s+({_AMOUNT_BODY})(?!\w)"
-)
+_TAIL_CHO_RE = re.compile(r"(?i)^\s*cho\b(.*)$")
+CUSTOM_PAIR_RE = re.compile(rf"(?i)\b([A-Za-zÀ-ỹ][A-Za-zÀ-ỹ0-9_]*)\s+({_AMOUNT_BODY})(?!\w)")
 
-_ROOM_WIDE_MARKERS = ("cả phòng", "tất cả", "mọi người", "all")
+_ROOM_WIDE_MARKERS = ("cả phòng", "cả nhà", "tất cả", "mọi người", "all")
 _STOPWORDS = {"cho", "đều", "nha", "nhé", "nhe", "ạ", "đi", "luôn", "này", "giúp"}
 _IGNORED_PAIR_PREFIXES = {"hết", "tổng", "giá", "tiền", "khoảng", "tầm", "hôm", "tháng", "ngày"}
 _NON_PAYER_WORDS = frozenset(
@@ -109,6 +108,7 @@ class RawExtractionResult:
     custom_splits: dict[str, str] = field(default_factory=dict)
     category_hint: str = "Other"
     source: str = "fallback"
+    tentative_participants: bool = False
 
 
 def _infer_category(text: str) -> str:
@@ -129,14 +129,18 @@ def _extract_payer(text: str) -> str:
     return candidate
 
 
-def _extract_participants(text: str) -> list[str]:
+def _extract_participants(text: str, tail: str = "") -> tuple[list[str], bool]:
     match = SPLIT_CLAUSE_RE.search(text)
+    tentative = False
     if not match:
-        return []
+        match = _TAIL_CHO_RE.search(tail)
+        tentative = True
+    if not match:
+        return [], False
     clause = match.group(1).strip()
     lowered = clause.lower()
     if any(marker in lowered for marker in _ROOM_WIDE_MARKERS):
-        return []
+        return [], False
 
     # Strip trailing payer mentions such as "tao trả" from the split clause
     clause = re.sub(r"(?i),?\s*[A-Za-zÀ-ỹ0-9_]+\s+(?:trả|chi|ứng).*$", "", clause)
@@ -149,13 +153,11 @@ def _extract_participants(text: str) -> list[str]:
         name = " ".join(words)
         if name.lower() not in {p.lower() for p in participants}:
             participants.append(name)
-    return participants
+    return participants, tentative
 
 
 _LEADING_NOISE_RE = re.compile(r"(?i)^paid\b\s*")
-_TRAILING_CONNECTOR_RE = re.compile(
-    r"(?i)\b(?:hết|tổng(?:\s+cộng)?|giá|tốn|mất|là)\s*$"
-)
+_TRAILING_CONNECTOR_RE = re.compile(r"(?i)\b(?:hết|tổng(?:\s+cộng)?|giá|tốn|mất|là)\s*$")
 
 
 def _strip_description_noise(text: str) -> str:
@@ -174,7 +176,7 @@ def _clean_description(prefix: str, tail: str = "") -> str:
     if cleaned_prefix:
         return cleaned_prefix
 
-    tail_without_split = SPLIT_CLAUSE_RE.sub("", tail)
+    tail_without_split = _TAIL_CHO_RE.sub("", SPLIT_CLAUSE_RE.sub("", tail))
     cleaned_tail = _strip_description_noise(tail_without_split)
     return cleaned_tail or "Chi tiêu chung"
 
@@ -204,10 +206,11 @@ def extract_expense_fallback(text: str) -> RawExtractionResult | None:
     if len(custom_splits) >= 2:
         split_type = "CUSTOM_AMOUNT"
         participant_hints = list(custom_splits.keys())
+        tentative_participants = False
     else:
         custom_splits = {}
         split_type = "EQUAL"
-        participant_hints = _extract_participants(normalized)
+        participant_hints, tentative_participants = _extract_participants(normalized, tail)
 
     return RawExtractionResult(
         raw_amount=raw_amount,
@@ -218,4 +221,5 @@ def extract_expense_fallback(text: str) -> RawExtractionResult | None:
         custom_splits=custom_splits,
         category_hint=_infer_category(normalized),
         source="fallback",
+        tentative_participants=tentative_participants,
     )

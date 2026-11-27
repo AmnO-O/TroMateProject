@@ -159,6 +159,7 @@ class ExpenseParser:
                 sender_member_id=sender_member_id,
                 room_members=room_members,
                 member_index=member_index,
+                tentative=extracted.tentative_participants,
             )
             splits = self._compute_equal_splits(
                 total_amount,
@@ -253,9 +254,23 @@ class ExpenseParser:
         sender_member_id: uuid.UUID,
         room_members: Sequence[MemberContext],
         member_index: dict[str, uuid.UUID],
+        tentative: bool = False,
     ) -> list[uuid.UUID]:
         if not hints:
             return [m.member_id for m in room_members]
+
+        if tentative:
+            # Ambiguous "cho <purpose>" phrases (e.g. "cho tháng 11", "cho mẹ", "cho xe")
+            # have 0 matching room members/pronouns -> fall back to the whole room.
+            # If at least one name matches (e.g. "cho Tuấn và tôi"), we enforce validation
+            # so unknown members raise ValidationError (UC03b-TC06).
+            has_any_match = any(
+                hint.strip().lstrip("@").lower() in member_index
+                or hint.strip().lstrip("@").lower() in _SELF_PRONOUNS
+                for hint in hints
+            )
+            if not has_any_match:
+                return [m.member_id for m in room_members]
 
         seen: set[uuid.UUID] = set()
         resolved: list[uuid.UUID] = []
