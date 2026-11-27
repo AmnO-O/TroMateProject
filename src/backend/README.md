@@ -98,6 +98,31 @@ Fill in:
 
 `.env` is ignored by Git. Only `.env.example` is committed.
 
+### Time durations (testing)
+
+Every duration of Use-Case Specification v3.0 is a setting in minutes
+(`DurationSettings` in `app/core/config.py`). Unset, each takes its production value. The
+shared test environment sets the Test Plan v1.2 values in `.env` so time-based flows run in
+minutes:
+
+| Variable | Spec | Production (default) | Test env |
+|---|---|---|---|
+| `REVIEW_WINDOW_MIN_MINUTES` | BR03, UC13-AF05 | 1440 (1 day) | 5 |
+| `REVIEW_WINDOW_MAX_MINUTES` | BR03, UC13-AF05 | 43200 (30 days) | 43200 |
+| `REP_VOTE_PERIOD_MINUTES` | BR10 | unset (the 12/24/48/72 h chosen) | 10 |
+| `CHANGE_REQUEST_VOTE_PERIOD_MINUTES` | BR11 | 1440 (24 h) | 10 |
+| `VOTE_REMINDER_BEFORE_END_MINUTES` | BR10 | 120 (2 h) | 2 |
+| `CHANGE_REQUEST_OPEN_PERIOD_MINUTES` | BR11, UC15-AF06 | 4320 (3 days) | 10 |
+| `PROPOSAL_COOLDOWN_MINUTES` | BR11, UC15-AF04 | 10080 (7 days) | 15 |
+| `DISPUTE_REMINDER_INTERVAL_MINUTES` | BR04, UC05-AF02 | 4320 (3 days) | 10 |
+| `DEADLINE_REMINDER_BEFORE_MINUTES` | BR03, UC06-AF05 | 1440 (24 h) | 5 |
+| `DEADLINE_REMINDER_MIN_WINDOW_MINUTES` | BR03, UC06-AF05 | 1440 (1 day) | 5 |
+
+The active values are logged at startup. With `APP_ENV=production`, settings fail to load
+(and the app does not start) if any duration differs from its production value. Each
+expense stores the window it was shared with (`expenses.review_window_minutes`), so changing
+these settings or the room's window never moves an existing deadline (BR03).
+
 ## Run locally
 
 Start the API:

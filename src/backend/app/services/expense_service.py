@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.adapters.ai_extraction import AIExtractionAdapter
 from app.adapters.vnd_parser import RawExtractionResult
+from app.core.config import DurationSettings, get_duration_settings
 from app.db.enums import (
     ApprovalDecision,
     ExpenseStatus,
@@ -181,7 +182,9 @@ class ExpenseService:
         parser: ExpenseParser | None = None,
         room_service: RoomService | None = None,
         uow_factory: UnitOfWorkFactory = UnitOfWork,
+        durations: DurationSettings | None = None,
     ) -> None:
+        self._durations = durations or get_duration_settings()
         self._extractor = extractor or AIExtractionAdapter()
         self._parser = parser or ExpenseParser()
         self._uow_factory = uow_factory
@@ -665,7 +668,11 @@ class ExpenseService:
                     body=f"{expense.description} · {reason_text}",
                 )
                 if action == "reject":
-                    uow.expenses.enqueue(expense, "reminder", available_at=now + timedelta(days=3))
+                    uow.expenses.enqueue(
+                        expense,
+                        "reminder",
+                        available_at=now + self._durations.dispute_reminder_interval,
+                    )
             if action != "addreason":
                 votes[actor] = ApprovalDecision(action.upper())
         if action != "refresh":
@@ -895,7 +902,7 @@ class ExpenseService:
                 if retired:
                     uow.expenses.enqueue(expense, "retire", recipient=retired)
             if active_reminder:
-                job.available_at = now + timedelta(days=3)
+                job.available_at = now + self._durations.dispute_reminder_interval
                 job.attempts = 0
             else:
                 await uow.expenses.finish_delivery(job)

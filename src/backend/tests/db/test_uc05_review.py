@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy import select
 
+from app.core.config import DurationSettings
 from app.db.enums import ApprovalDecision, RejectionReason, ReviewDefaultAction, SplitType
 from app.db.models.expense_model import ExpenseDelivery
 from app.repositories.room_repository import RoomRepository
@@ -171,7 +172,9 @@ async def test_retry_after_confirmation_does_not_post_ledger_twice(uow_factory, 
 async def test_dispute_reminders_repeat_until_cancel(uow_factory, session_factory):
     room = await make_room(uow_factory)
     expense = await make_expense(uow_factory, room)
-    service = ExpenseService(uow_factory=uow_factory)
+    # SCRUM-138: the reminder interval comes from settings (test env: 10 minutes).
+    durations = DurationSettings(_env_file=None, dispute_reminder_interval_minutes=10)
+    service = ExpenseService(uow_factory=uow_factory, durations=durations)
     args = dict(expense_id=expense.id, telegram_chat_id=CHAT_ID)
     start = datetime.now(UTC)
     disputed = await service.review(
@@ -189,7 +192,8 @@ async def test_dispute_reminders_repeat_until_cancel(uow_factory, session_factor
                     select(ExpenseDelivery).where(ExpenseDelivery.kind == "reminder")
                 )
             ).one()
-            assert job.available_at >= start + timedelta(days=3)
+            assert start + timedelta(minutes=10) <= job.available_at
+            assert job.available_at <= datetime.now(UTC) + timedelta(minutes=10)
             job.available_at = start - timedelta(seconds=1)
 
     while await service.deliver_next(deliver):

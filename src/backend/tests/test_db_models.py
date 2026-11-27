@@ -7,7 +7,6 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import CheckConstraint
 
-from app.db.enums import MAX_REVIEW_WINDOW_MINUTES, MIN_REVIEW_WINDOW_MINUTES
 from app.db.models import Base, Expense, LedgerEntry, Room
 from app.repositories import LedgerRepository
 
@@ -68,11 +67,6 @@ def test_ledger_entry_has_effective_and_created_timestamps() -> None:
     assert columns.created_at.type.timezone
 
 
-def test_review_window_bounds_v3() -> None:
-    assert MIN_REVIEW_WINDOW_MINUTES == 1440
-    assert MAX_REVIEW_WINDOW_MINUTES == 43200
-
-
 def test_room_review_timeout_column_is_nullable_with_no_default() -> None:
     column = Room.__table__.c.review_timeout_minutes
     assert column.nullable is True
@@ -81,13 +75,11 @@ def test_room_review_timeout_column_is_nullable_with_no_default() -> None:
     assert Room(telegram_chat_id=1, name="P302").review_timeout_minutes is None
 
 
-def test_room_review_timeout_check_constraint_allows_null_or_1_to_30_days() -> None:
+def test_room_review_timeout_check_constraint_only_requires_positive() -> None:
+    # SCRUM-138: the BR03 range is configurable and validated by the application.
     constraints = {c.name: c for c in Room.__table__.constraints if isinstance(c, CheckConstraint)}
-    ck = constraints["ck_rooms_review_timeout_allowed"]
-    sql = str(ck.sqltext)
-    assert "IS NULL" in sql
-    assert "1440" in sql
-    assert "43200" in sql
+    sql = str(constraints["ck_rooms_review_timeout_allowed"].sqltext)
+    assert sql == "review_timeout_minutes IS NULL OR review_timeout_minutes > 0"
 
 
 def test_alembic_single_head_for_v3_room_window() -> None:
@@ -96,7 +88,8 @@ def test_alembic_single_head_for_v3_room_window() -> None:
     config.set_main_option("script_location", str(backend_dir / "alembic"))
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_heads() == ["uc05creatorvote"]
+    assert script.get_heads() == ["scrum138window"]
+    assert script.get_revision("scrum138window").down_revision == "uc05creatorvote"
     assert script.get_revision("uc05creatorvote").down_revision == "uc05delivery"
     assert script.get_revision("uc05delivery").down_revision == "uc01uc05merge"
     assert set(script.get_revision("uc01uc05merge").down_revision) == {"124draft", "a3c7e91f4b20"}
