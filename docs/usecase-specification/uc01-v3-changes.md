@@ -14,6 +14,7 @@ Spec v3 thay đổi hai điểm liên quan đến UC01:
 | Window của phòng | Mặc định 5 phút; các giá trị cho phép: 5/15/30 phút, 1/6/12/24 giờ | **Không có mặc định**: phòng mới chưa có window. Giá trị do UC13 vote ra, từ **1 ngày đến 30 ngày** |
 | Bước 3, summary | Chỉ có các nút Share / Edit / Cancel | Thêm **trạng thái auto-confirm** và **window của phòng**, kèm nút **Turn off auto-confirmation** |
 | Auto-confirm | Luôn bật với khoản chi text | **Mặc định bật** nếu phòng có window; creator tắt được trước khi Share |
+| Bước 5, tin nhắn trong group | Tag mọi người liên quan với Agree / Reject / Edit | Tag **participant** với **Agree / Reject**; creator có **Edit / Cancel expense** (BR04) |
 | Bước 5, deadline | `now + window của phòng` (trừ khoản chi cần duyệt thủ công) | Chỉ tính deadline khi auto-confirm đang **bật**: `now + window của phòng` |
 
 **Alternative flow mới:**
