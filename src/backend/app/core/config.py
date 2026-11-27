@@ -50,7 +50,7 @@ class Settings(DatabaseSettings):
     port: int = 8000
 
     public_base_url: str = ""
-    bot_library: Literal["ptb", "aiogram", "telebot"] = "ptb"
+    bot_library: Literal["ptb", "aiogram", "telebot"] = "aiogram"
 
     telegram_bot_token: str
     telegram_webhook_secret: str

@@ -384,11 +384,23 @@ async def test_fallback_cho_clause_and_testcases_xlsx_inputs() -> None:
         lan_id: 5_000,
     }
 
-    # UC03b-TC06: unknown participant in "cho ..." raises ValidationError
-    raw_unknown = await extractor.extract("Mua trà sữa 90k cho Tuấn và tôi")
+    # UC03b-TC06: explicit "chia" with unknown participant raises ValidationError
+    raw_unknown = await extractor.extract("Mua trà sữa 90k chia Tuấn và tôi")
     assert raw_unknown is not None
     with pytest.raises(ValidationError, match="Tuấn"):
         parser.parse(raw_unknown, sender_member_id=huy_id, room_members=members)
+
+    # Ambiguous "cho <purpose/room>" phrases must safely fall back to whole room
+    for phrase in (
+        "Tiền điện 500k cho tháng 11",
+        "Mua quà 200k cho mẹ",
+        "Đổ xăng 100k cho xe",
+        "Mua trà sữa 90k cho cả nhà",
+    ):
+        raw_purpose = await extractor.extract(phrase)
+        assert raw_purpose is not None
+        parsed_purpose = parser.parse(raw_purpose, sender_member_id=huy_id, room_members=members)
+        assert {s.member_id for s in parsed_purpose.splits} == {minh_id, lan_id, huy_id, an_id}
 
     # UC03b-TC12 / BR05: custom split with zero share is rejected
     with pytest.raises(ValidationError, match="lớn hơn 0"):

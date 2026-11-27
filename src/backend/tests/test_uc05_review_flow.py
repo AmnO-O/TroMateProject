@@ -203,8 +203,9 @@ async def test_miniapp_expense_review_actions_and_guards(client, settings, fake_
     )
     assert res_edit.status_code == 200
     assert res_edit.json()["version"] == 2
-    edit_call = review_mock.await_args_list[2].kwargs
-    assert edit_call["action"] == "edit"
+    edit_call = next(
+        c.kwargs for c in review_mock.await_args_list if c.kwargs.get("action") == "edit"
+    )
     assert edit_call["edit"].split_type == SplitType.CUSTOM_RATIO
 
     # 4. reject with OTHER note forwards reason and note
@@ -223,7 +224,9 @@ async def test_miniapp_expense_review_actions_and_guards(client, settings, fake_
         },
     )
     assert res_reject.status_code == 200
-    reject_call = review_mock.await_args_list[4].kwargs
+    reject_call = next(
+        c.kwargs for c in review_mock.await_args_list if c.kwargs.get("action") == "reject"
+    )
     assert reject_call["reason"] == RejectionReason.OTHER
     assert reject_call["note"] == "Tôi chỉ lấy 50k"
 

@@ -228,11 +228,7 @@ async def test_gemini_fallback_on_timeout_and_malformed_payload(
             200,
             json={
                 "candidates": [
-                    {
-                        "content": {
-                            "parts": [{"text": '{"is_expense": true, "raw_amount": ""}'}]
-                        }
-                    }
+                    {"content": {"parts": [{"text": '{"is_expense": true, "raw_amount": ""}'}]}}
                 ]
             },
         )
@@ -256,11 +252,7 @@ async def test_non_expense_or_missing_amount_returns_none() -> None:
             200,
             json={
                 "candidates": [
-                    {
-                        "content": {
-                            "parts": [{"text": '{"is_expense": false, "raw_amount": ""}'}]
-                        }
-                    }
+                    {"content": {"parts": [{"text": '{"is_expense": false, "raw_amount": ""}'}]}}
                 ]
             },
         )
