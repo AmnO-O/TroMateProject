@@ -31,9 +31,9 @@ from aiogram.types import (
 from app.adapters.ai_extraction import AIExtractionAdapter
 from app.bots.base import BotEngine, TaskTracker
 from app.bots.common import (
-    balance_text,
     group_start_text,
     help_text,
+    live_balance_text,
     miniapp_direct_link,
     start_text,
 )
@@ -50,6 +50,7 @@ from app.bots.interface import (
     SplitLineDTO,
 )
 from app.core.config import Settings
+from app.services.balance_service import BalanceService
 from app.services.errors import ConflictError, ServiceError
 from app.services.expense_service import ExpenseDraft, ExpenseReview, ExpenseService
 
@@ -64,6 +65,7 @@ class AiogramEngine(BotEngine):
         settings: Settings,
         *,
         expense_service: ExpenseService | None = None,
+        balance_service: BalanceService | None = None,
     ) -> None:
         self.settings = settings
         self.bot = Bot(
@@ -86,6 +88,7 @@ class AiogramEngine(BotEngine):
                 client=self._http_client,
             ),
         )
+        self._balance_service = balance_service or BalanceService()
 
         self.router.message.register(self._on_start, CommandStart())
         self.router.message.register(self._on_new_expense, Command("new"))
@@ -290,29 +293,38 @@ class AiogramEngine(BotEngine):
             ]
         )
 
-    def _group_miniapp_keyboard(self) -> InlineKeyboardMarkup:
+    def _group_miniapp_keyboard(self, chat_id: int) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
                         text="Open TroMate Mini App",
-                        url=miniapp_direct_link(self.username),
+                        url=miniapp_direct_link(self.username, chat_id),
                     )
                 ]
             ]
         )
 
-    def _balance_keyboard(self) -> InlineKeyboardMarkup:
-        return InlineKeyboardMarkup(
-            inline_keyboard=[
+    def _balance_keyboard(self, chat_id: int, chat_type: str) -> InlineKeyboardMarkup:
+        rows = [[InlineKeyboardButton(text="🔄 Làm mới", callback_data="balance:refresh")]]
+        if chat_type != "private":
+            rows.append(
                 [
                     InlineKeyboardButton(
-                        text="Refresh balances",
-                        callback_data="balance:refresh",
+                        text="Xem chi tiết trong Mini App",
+                        url=miniapp_direct_link(self.username, chat_id),
                     )
                 ]
-            ]
-        )
+            )
+        return InlineKeyboardMarkup(inline_keyboard=rows)
+
+    async def _balance_reply(self, chat_id: int, chat_type: str) -> dict[str, Any]:
+        # Plain text: member names are user-controlled and must not be parsed as HTML.
+        return {
+            "text": await live_balance_text(self._balance_service, chat_id, chat_type),
+            "parse_mode": None,
+            "reply_markup": self._balance_keyboard(chat_id, chat_type),
+        }
 
     async def _on_start(self, message: Message) -> None:
         if message.chat.type == "private":
@@ -322,8 +334,8 @@ class AiogramEngine(BotEngine):
             )
         else:
             await message.answer(
-                group_start_text(self.name, self.username),
-                reply_markup=self._group_miniapp_keyboard(),
+                group_start_text(self.name, self.username, message.chat.id),
+                reply_markup=self._group_miniapp_keyboard(message.chat.id),
             )
 
     def _store_draft(self, draft: ExpenseDraft) -> None:
@@ -537,7 +549,7 @@ class AiogramEngine(BotEngine):
         )
 
     async def _on_balance(self, message: Message) -> None:
-        await message.answer(balance_text(), reply_markup=self._balance_keyboard())
+        await message.answer(**await self._balance_reply(message.chat.id, message.chat.type))
 
     async def _on_app(self, message: Message) -> None:
         if message.chat.type == "private":
@@ -547,8 +559,8 @@ class AiogramEngine(BotEngine):
             )
         else:
             await message.answer(
-                f"Open the TroMate Mini App: {miniapp_direct_link(self.username)}",
-                reply_markup=self._group_miniapp_keyboard(),
+                f"Open the TroMate Mini App: {miniapp_direct_link(self.username, message.chat.id)}",
+                reply_markup=self._group_miniapp_keyboard(message.chat.id),
             )
 
     async def _on_help(self, message: Message) -> None:
@@ -559,12 +571,18 @@ class AiogramEngine(BotEngine):
         await message.answer("Slow handler finished after 2 seconds.")
 
     async def _on_callback(self, callback: CallbackQuery) -> None:
-        await callback.answer("Balances refreshed")
-        if isinstance(callback.message, Message):
-            await callback.message.edit_text(
-                balance_text(),
-                reply_markup=self._balance_keyboard(),
-            )
+        message = callback.message
+        if not isinstance(message, Message):
+            await callback.answer()
+            return
+        # handle_update already confirmed overdue expenses of this group before dispatching.
+        reply = await self._balance_reply(message.chat.id, message.chat.type)
+        try:
+            await message.edit_text(**reply)
+        except TelegramBadRequest as exc:
+            if "not modified" not in exc.message.lower():
+                raise
+        await callback.answer("Đã cập nhật số dư")
 
     async def _on_review(self, callback: CallbackQuery) -> None:
         message = callback.message

@@ -18,7 +18,7 @@ and a services layer (SCRUM-122). See [Database](#database).
 - Three bot adapters selected by `BOT_LIBRARY=ptb|aiogram|telebot`:
   - `/start`, `/balance`, `/app`, `/help` (Vietnamese help text in `common.py`)
   - `/new [text]` (`AiogramEngine` — UC01 + UC03b expense logging in group chats)
-  - inline “Refresh balances” callback and UC01 inline confirmation card (`[✓ Đồng ý]`, `[✕ Từ chối]`, `[✎ Chỉnh sửa]`)
+  - live `/balance` from the ledger with an inline “🔄 Làm mới” refresh, and UC01 inline confirmation card (`[✓ Đồng ý]`, `[✕ Từ chối]`, `[✎ Chỉnh sửa]`)
   - private-chat `web_app` button
   - group direct-link button
   - a dev-only `/slow` command for ACK/concurrency checks
@@ -173,9 +173,37 @@ Returns the validated user and launch context. Errors include a stable code:
 
 ### `GET /api/miniapp/balance`
 
-Requires the raw `initData` in the `X-Telegram-Init-Data` header. Returns mock
-balances for the spike. Production should exchange `initData` for a short-lived
-session token instead of re-validating it on every request.
+Requires the raw `initData` in the `X-Telegram-Init-Data` header. Returns the
+live net balance of every room member, summed from `ledger_entries` (only
+CONFIRMED expenses and settlements are posted there), plus the suggested
+transfers from `app/services/debt_engine.py` (greedy minimum cash flow, at most
+`n - 1` transfers). `+` means the room owes the member, `-` means they owe.
+
+The room is taken from `initData.chat` or, for direct links, from
+`start_param`: `room_<chat_id>` (sent by `/balance` and `/app` in a group) or an
+`expense_…` link. Because anyone can craft a `start_param`, the caller must be a
+member of that room (`403 FORBIDDEN` otherwise). Overdue PENDING expenses are
+auto-resolved first, so the figures are current. Without a room context the
+response has `"room": null` and empty lists.
+
+```json
+{
+  "ok": true, "currency": "VND", "generated_at": "2026-11-26T03:00:00Z",
+  "room": {"id": "…", "name": "P302"}, "settled": false,
+  "balances": [{"member_id": "…", "telegram_user_id": 1, "name": "Hao", "amount": 200000, "is_me": false}],
+  "transfers": [{"from_member_id": "…", "from_name": "Lan", "to_member_id": "…", "to_name": "Hao", "amount": 100000}]
+}
+```
+
+### `GET /api/miniapp/expenses?limit=20`
+
+Same authentication and room resolution as `/balance`. Returns the newest
+shared expenses of the room (PENDING, DISPUTED, CONFIRMED, CANCELLED; never
+DRAFT), each with `payer_name`, `category_name`, `status` and the caller's own
+`my_share`. `limit` is 1–100.
+
+Production should exchange `initData` for a short-lived session token instead
+of re-validating it on every request.
 
 ### `POST /webhook/telegram`
 
