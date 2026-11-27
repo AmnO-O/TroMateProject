@@ -384,11 +384,16 @@ async def test_fallback_cho_clause_and_testcases_xlsx_inputs() -> None:
         lan_id: 5_000,
     }
 
-    # UC03b-TC06: explicit "chia" with unknown participant raises ValidationError
-    raw_unknown = await extractor.extract("Mua trà sữa 90k chia Tuấn và tôi")
+    # UC03b-TC06: "cho Tuấn và tôi" with unknown participant raises ValidationError
+    raw_unknown = await extractor.extract("Mua trà sữa 90k cho Tuấn và tôi")
     assert raw_unknown is not None
     with pytest.raises(ValidationError, match="Tuấn"):
         parser.parse(raw_unknown, sender_member_id=huy_id, room_members=members)
+
+    raw_unknown_chia = await extractor.extract("Mua trà sữa 90k chia Tuấn và tôi")
+    assert raw_unknown_chia is not None
+    with pytest.raises(ValidationError, match="Tuấn"):
+        parser.parse(raw_unknown_chia, sender_member_id=huy_id, room_members=members)
 
     # Ambiguous "cho <purpose/room>" phrases must safely fall back to whole room
     for phrase in (

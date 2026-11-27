@@ -259,20 +259,27 @@ class ExpenseParser:
         if not hints:
             return [m.member_id for m in room_members]
 
+        if tentative:
+            # Ambiguous "cho <purpose>" phrases (e.g. "cho tháng 11", "cho mẹ", "cho xe")
+            # have 0 matching room members/pronouns -> fall back to the whole room.
+            # If at least one name matches (e.g. "cho Tuấn và tôi"), we enforce validation
+            # so unknown members raise ValidationError (UC03b-TC06).
+            has_any_match = any(
+                hint.strip().lstrip("@").lower() in member_index
+                or hint.strip().lstrip("@").lower() in _SELF_PRONOUNS
+                for hint in hints
+            )
+            if not has_any_match:
+                return [m.member_id for m in room_members]
+
         seen: set[uuid.UUID] = set()
         resolved: list[uuid.UUID] = []
         for hint in hints:
-            try:
-                member_id = self._resolve_member(
-                    hint,
-                    sender_member_id=sender_member_id,
-                    member_index=member_index,
-                )
-            except ValidationError:
-                if tentative:
-                    # Ambiguous "cho <purpose>" phrases fall back to the whole room.
-                    return [m.member_id for m in room_members]
-                raise
+            member_id = self._resolve_member(
+                hint,
+                sender_member_id=sender_member_id,
+                member_index=member_index,
+            )
             if member_id not in seen:
                 seen.add(member_id)
                 resolved.append(member_id)
