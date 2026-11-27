@@ -6,14 +6,15 @@ import re
 from dataclasses import dataclass, field
 
 _UNIT_AMOUNT_BODY = (
-    r"\d+(?:[.,]\d+)?\s*(?:k|nghìn|ngàn|tr|triệu|củ|lít|đ|vnd)(?:\s*rưỡi|\d+)?"
-    r"|\d{1,3}(?:[.,]\d{3})+\s*(?:đ|vnd)?"
+    r"\d+(?:[.,]\d+)?\s*(?:k|nghìn|ngàn|tr|triệu|củ|lít|đ|vnd|đồng)(?:\s*rưỡi|\d+)?"
+    r"|\d{1,3}(?:[.,]\d{3})+\s*(?:đ|vnd|đồng)?"
 )
 _AMOUNT_BODY = rf"{_UNIT_AMOUNT_BODY}|\d{{4,9}}"
 UNIT_AMOUNT_RE = re.compile(rf"(?i)(?<![\w#-])({_UNIT_AMOUNT_BODY})(?!\w)")
 AMOUNT_RE = re.compile(rf"(?i)(?<![\w#-])({_AMOUNT_BODY})(?!\w)")
 PAYER_RE = re.compile(r"(?i)\b([A-Za-zÀ-ỹ0-9_]+)\s+(?:trả|chi|ứng|thanh\s+toán|paid)\b")
 SPLIT_CLAUSE_RE = re.compile(r"(?i)\b(?:chia|tính\s+tiền|share)\b(.*)$")
+_TAIL_CHO_RE = re.compile(r"(?i)^\s*cho\b(.*)$")
 CUSTOM_PAIR_RE = re.compile(
     rf"(?i)\b([A-Za-zÀ-ỹ][A-Za-zÀ-ỹ0-9_]*)\s+({_AMOUNT_BODY})(?!\w)"
 )
@@ -129,8 +130,8 @@ def _extract_payer(text: str) -> str:
     return candidate
 
 
-def _extract_participants(text: str) -> list[str]:
-    match = SPLIT_CLAUSE_RE.search(text)
+def _extract_participants(text: str, tail: str = "") -> list[str]:
+    match = SPLIT_CLAUSE_RE.search(text) or _TAIL_CHO_RE.search(tail)
     if not match:
         return []
     clause = match.group(1).strip()
@@ -174,7 +175,7 @@ def _clean_description(prefix: str, tail: str = "") -> str:
     if cleaned_prefix:
         return cleaned_prefix
 
-    tail_without_split = SPLIT_CLAUSE_RE.sub("", tail)
+    tail_without_split = _TAIL_CHO_RE.sub("", SPLIT_CLAUSE_RE.sub("", tail))
     cleaned_tail = _strip_description_noise(tail_without_split)
     return cleaned_tail or "Chi tiêu chung"
 
@@ -207,7 +208,7 @@ def extract_expense_fallback(text: str) -> RawExtractionResult | None:
     else:
         custom_splits = {}
         split_type = "EQUAL"
-        participant_hints = _extract_participants(normalized)
+        participant_hints = _extract_participants(normalized, tail)
 
     return RawExtractionResult(
         raw_amount=raw_amount,

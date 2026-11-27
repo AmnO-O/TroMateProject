@@ -207,3 +207,68 @@ async def test_gemini_api_key_not_leaked_in_logs(caplog: pytest.LogCaptureFixtur
     assert result.source == "fallback"
     assert secret_key not in caplog.text
     assert "HTTPStatusError" in caplog.text
+
+
+async def test_gemini_fallback_on_timeout_and_malformed_payload(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.WARNING)
+
+    def _timeout_handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("timed out", request=request)
+
+    def _malformed_json_handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"candidates": [{"content": {"parts": [{"text": "{not-valid-json"}]}}]},
+        )
+
+    def _missing_amount_handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [{"text": '{"is_expense": true, "raw_amount": ""}'}]
+                        }
+                    }
+                ]
+            },
+        )
+
+    for handler in (_timeout_handler, _malformed_json_handler, _missing_amount_handler):
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            adapter = AIExtractionAdapter(api_key="dummy-key", client=client)
+            result = await adapter.extract("Mua nước uống 60k chia tao với Bình")
+        assert result is not None
+        assert result.source == "fallback"
+        assert result.raw_amount == "60k"
+
+    assert "ReadTimeout" in caplog.text
+    assert "JSONDecodeError" in caplog.text
+    assert "ValueError" in caplog.text
+
+
+async def test_non_expense_or_missing_amount_returns_none() -> None:
+    def _non_expense_handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [{"text": '{"is_expense": false, "raw_amount": ""}'}]
+                        }
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_non_expense_handler)) as client:
+        adapter = AIExtractionAdapter(api_key="dummy-key", client=client)
+        assert await adapter.extract("Chào cả phòng") is None
+
+    # UC03b-TC05: text without an amount returns None in fallback mode
+    fallback = AIExtractionAdapter(api_key="")
+    assert await fallback.extract("Mua đồ ăn sáng cho cả phòng") is None

@@ -41,6 +41,10 @@ ROOM_MEMBERS = [
         ("150.000đ", 150_000),
         ("650.000đ", 650_000),
         ("1500", 1_500),
+        ("1,2 triệu", 1_200_000),
+        ("300 ngàn", 300_000),
+        ("2 củ", 2_000_000),
+        ("10001 đồng", 10_001),
         (250_000, 250_000),
     ],
 )
@@ -310,3 +314,91 @@ def test_parser_execution_time_benchmark() -> None:
         f"1000 runs={total_ms:.2f} ms (avg {avg_us:.2f} us/call)"
     )
     assert avg_us < 1000.0
+
+
+async def test_fallback_cho_clause_and_testcases_xlsx_inputs() -> None:
+    minh_id = uuid.UUID("00000000-0000-0000-0000-000000000011")
+    lan_id = uuid.UUID("00000000-0000-0000-0000-000000000012")
+    huy_id = uuid.UUID("00000000-0000-0000-0000-000000000013")
+    an_id = uuid.UUID("00000000-0000-0000-0000-000000000014")
+    members = [
+        MemberContext(member_id=minh_id, display_name="Minh", username="minh"),
+        MemberContext(member_id=lan_id, display_name="Lan", username="lan"),
+        MemberContext(member_id=huy_id, display_name="Huy", username="huy"),
+        MemberContext(member_id=an_id, display_name="An", username="an"),
+    ]
+    extractor = AIExtractionAdapter(api_key="")
+    parser = ExpenseParser()
+
+    # UC01-TC01 / UC03b-TC01: "cho <participants>" in fallback mode
+    raw_cho = await extractor.extract("Mua đồ chợ 300k cho Lan, Minh và tôi")
+    assert raw_cho is not None
+    parsed_cho = parser.parse(raw_cho, sender_member_id=huy_id, room_members=members)
+    assert parsed_cho.total_amount == 300_000
+    assert parsed_cho.category_name == "Groceries"
+    assert parsed_cho.payer_member_id == huy_id
+    assert {s.member_id: s.share_amount for s in parsed_cho.splits} == {
+        lan_id: 100_000,
+        minh_id: 100_000,
+        huy_id: 100_000,
+    }
+
+    # UC03b-TC02: equal split remainder goes to payer
+    raw_rem = await extractor.extract("Đổ xăng 100k cho Lan, Minh và tôi")
+    assert raw_rem is not None
+    parsed_rem = parser.parse(raw_rem, sender_member_id=huy_id, room_members=members)
+    assert {s.member_id: s.share_amount for s in parsed_rem.splits} == {
+        huy_id: 33_334,
+        lan_id: 33_333,
+        minh_id: 33_333,
+    }
+
+    # UC01-TC03: "cho cả phòng" splits across all 4 room members
+    raw_room = await extractor.extract("Tiền nước uống 60k cho cả phòng")
+    assert raw_room is not None
+    parsed_room = parser.parse(raw_room, sender_member_id=lan_id, room_members=members)
+    assert {s.member_id: s.share_amount for s in parsed_room.splits} == {
+        minh_id: 15_000,
+        lan_id: 15_000,
+        huy_id: 15_000,
+        an_id: 15_000,
+    }
+
+    # UC03b-TC07: unmatched category defaults to "Other"
+    raw_other = await extractor.extract("Chi linh tinh 50k cho Huy và tôi")
+    assert raw_other is not None
+    parsed_other = parser.parse(raw_other, sender_member_id=lan_id, room_members=members)
+    assert parsed_other.category_name == "Other"
+    assert {s.member_id: s.share_amount for s in parsed_other.splits} == {
+        huy_id: 25_000,
+        lan_id: 25_000,
+    }
+
+    # UC03b-TC15: "10001 đồng" with remainder absorbed by payer
+    raw_odd = await extractor.extract("Mua bánh 10001 đồng cho Lan và tôi")
+    assert raw_odd is not None
+    parsed_odd = parser.parse(raw_odd, sender_member_id=huy_id, room_members=members)
+    assert parsed_odd.total_amount == 10_001
+    assert {s.member_id: s.share_amount for s in parsed_odd.splits} == {
+        huy_id: 5_001,
+        lan_id: 5_000,
+    }
+
+    # UC03b-TC06: unknown participant in "cho ..." raises ValidationError
+    raw_unknown = await extractor.extract("Mua trà sữa 90k cho Tuấn và tôi")
+    assert raw_unknown is not None
+    with pytest.raises(ValidationError, match="Tuấn"):
+        parser.parse(raw_unknown, sender_member_id=huy_id, room_members=members)
+
+    # UC03b-TC12 / BR05: custom split with zero share is rejected
+    with pytest.raises(ValidationError, match="lớn hơn 0"):
+        parser.parse(
+            RawExtractionResult(
+                raw_amount="300k",
+                description="Mua đồ chợ",
+                split_type="CUSTOM_AMOUNT",
+                custom_splits={"Huy": "200k", "Lan": "100k", "Minh": "0k"},
+            ),
+            sender_member_id=huy_id,
+            room_members=members,
+        )
