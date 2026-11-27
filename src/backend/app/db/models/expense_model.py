@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Index, Text, false, func, text
@@ -102,5 +102,9 @@ class ExpenseDelivery(UUIDPrimaryKeyMixin, Base):
     kind: Mapped[str]
     recipient: Mapped[int | None] = mapped_column(BigInteger)
     body: Mapped[str] = mapped_column(Text)
-    available_at: Mapped[datetime] = mapped_column(index=True, server_default=func.now())
+    # Python-side default: deliver_next compares against datetime.now(UTC) on the app host,
+    # so a DB-clock default would make fresh jobs look "not yet due" under clock skew.
+    available_at: Mapped[datetime] = mapped_column(
+        index=True, default=lambda: datetime.now(UTC), server_default=func.now()
+    )
     attempts: Mapped[int] = mapped_column(default=0, server_default=text("0"))
