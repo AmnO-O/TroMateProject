@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.db.enums import ApprovalDecision, ExpenseStatus, RejectionReason
 from app.db.models import Attachment, Expense, ExpenseApproval, ExpenseSplit
+from app.db.models.expense_model import ExpenseDelivery
 from app.repositories.base_repository import BaseRepository
 
 
@@ -168,3 +169,28 @@ class ExpenseRepository(BaseRepository):
 
     async def get_attachment(self, attachment_id: uuid.UUID) -> Attachment | None:
         return await self._session.get(Attachment, attachment_id)
+
+    def enqueue(self, expense, kind="card", *, recipient=None, body="", available_at=None):
+        delivery = ExpenseDelivery(
+            expense_id=expense.id,
+            revision=expense.content_revision,
+            kind=kind,
+            recipient=recipient,
+            body=body,
+        )
+        if available_at is not None:
+            delivery.available_at = available_at
+        self._session.add(delivery)
+
+    async def next_delivery(self, now):
+        stmt = (
+            select(ExpenseDelivery)
+            .where(ExpenseDelivery.available_at <= now)
+            .order_by(ExpenseDelivery.available_at, ExpenseDelivery.id)
+            .limit(1)
+            .with_for_update(skip_locked=True)
+        )
+        return (await self._session.scalars(stmt)).one_or_none()
+
+    async def finish_delivery(self, delivery):
+        await self._session.delete(delivery)

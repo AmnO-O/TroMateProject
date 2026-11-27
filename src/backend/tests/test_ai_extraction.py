@@ -105,6 +105,35 @@ async def test_fallback_strips_leading_payer_from_description() -> None:
     assert no_desc.description == "Chi tiêu chung"
 
 
+async def test_fallback_english_paid_and_non_payer_phrases() -> None:
+    adapter = AIExtractionAdapter(api_key="")
+
+    lan_paid = await adapter.extract("Lan paid 200k for dinner")
+    assert lan_paid is not None
+    assert lan_paid.raw_amount == "200k"
+    assert lan_paid.payer_hint == "Lan"
+    assert "dinner" in lan_paid.description.lower()
+
+    bare_paid = await adapter.extract("Paid 300k for groceries")
+    assert bare_paid is not None
+    assert bare_paid.raw_amount == "300k"
+    assert bare_paid.payer_hint == "sender"
+    assert "groceries" in bare_paid.description.lower()
+    assert "paid" not in bare_paid.description.lower()
+
+    i_paid = await adapter.extract("I paid 150k for coffee")
+    assert i_paid is not None
+    assert i_paid.raw_amount == "150k"
+    assert i_paid.payer_hint == "I"
+    assert "coffee" in i_paid.description.lower()
+
+    installment = await adapter.extract("Tiền trả góp 500k")
+    assert installment is not None
+    assert installment.raw_amount == "500k"
+    assert installment.payer_hint == "sender"
+    assert installment.description == "Tiền trả góp"
+
+
 @pytest.mark.skipif(
     os.environ.get("RUN_LIVE_GEMINI") != "1",
     reason="Set RUN_LIVE_GEMINI=1 to run live Gemini API benchmark",
