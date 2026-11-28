@@ -133,9 +133,10 @@ async def test_expense_link_checks_signature_intent_and_version(client, settings
 
 
 @pytest.mark.asyncio
-async def test_submit_dispute_uses_authenticated_member(client, settings, fake_engine):
+@pytest.mark.parametrize("intent", ["review", "reject"])
+async def test_submit_dispute_uses_authenticated_member(client, settings, fake_engine, intent):
     expense_id = uuid.uuid4()
-    fields = base_fields(start_param=f"expense_{expense_id.hex}_-100_2_reject")
+    fields = base_fields(start_param=f"expense_{expense_id.hex}_-100_2_{intent}")
     fake_engine.resolve_room = AsyncMock()
     fake_engine.expense_service = SimpleNamespace(
         review=AsyncMock(side_effect=[{"status": "PENDING"}, {"status": "DISPUTED"}])

@@ -231,7 +231,7 @@ class ExpenseService:
         card_message_id: int | None = None,
         now: datetime | None = None,
     ) -> CreatedExpense:
-        """Persist a prepared draft as ``PENDING``, latching the room window at share time."""
+        """Persist a shared draft and its creator vote, latching the room window at share time."""
 
         async with self._uow_factory() as uow:
             room = await uow.rooms.get_room(draft.room_id)
@@ -256,7 +256,7 @@ class ExpenseService:
         source_type: SourceType = SourceType.TEXT,
         now: datetime | None = None,
     ) -> CreatedExpense | None:
-        """Extract, parse, and persist a ``PENDING`` expense in a single DB transaction."""
+        """Extract, parse, and persist a shared expense in a single DB transaction."""
 
         raw = await self._extractor.extract(text)
         if raw is None:
@@ -391,6 +391,8 @@ class ExpenseService:
             now=now,
         )
 
+        # The creator already agrees at share time. A self-only split has no debt to post.
+        creator_only = {split.member_id for split in draft.splits} == {draft.creator_member_id}
         expense = Expense(
             card_message_id=card_message_id,
             room_id=room.id,
@@ -400,10 +402,11 @@ class ExpenseService:
             description=draft.description,
             total_amount=draft.total_amount,
             split_type=draft.split_type,
-            status=ExpenseStatus.PENDING,
+            status=ExpenseStatus.CONFIRMED if creator_only else ExpenseStatus.PENDING,
+            confirmed_at=(now or datetime.now(UTC)) if creator_only else None,
             source_type=draft.source_type,
             review_window_minutes=review_window,
-            review_deadline=review_deadline,
+            review_deadline=None if creator_only else review_deadline,
             splits=[
                 ExpenseSplit(
                     member_id=split.member_id,
@@ -585,7 +588,7 @@ class ExpenseService:
             window = (
                 expense.review_window_minutes
                 if expense.source_type == SourceType.TEXT
-                and category.name not in {"Rent", "Utilities"}
+                and category.name not in MANUAL_ONLY_CATEGORIES
                 else None
             )
             changes.update(
@@ -601,6 +604,7 @@ class ExpenseService:
                     (expense.total_amount, edit.total_amount, "tổng tiền"),
                     (expense.category_id, category.id, "danh mục"),
                     (expense.split_type, edit.split_type, "cách chia"),
+                    ({s.member_id for s in expense.splits}, set(shares), "người tham gia"),
                     (
                         {sp.member_id: (sp.share_amount, sp.share_ratio) for sp in expense.splits},
                         {k: (v, ratios.get(k)) for k, v in shares.items()},
@@ -665,6 +669,14 @@ class ExpenseService:
                     body=f"{expense.description} · {reason_text}",
                 )
                 if action == "reject":
+                    for key in involved - {actor, expense.created_by_member_id}:
+                        if key in members:
+                            uow.expenses.enqueue(
+                                expense,
+                                "notice",
+                                recipient=members[key].telegram_user_id,
+                                body=f"{expense.description} · {reason_text}",
+                            )
                     uow.expenses.enqueue(expense, "reminder", available_at=now + timedelta(days=3))
             if action != "addreason":
                 votes[actor] = ApprovalDecision(action.upper())

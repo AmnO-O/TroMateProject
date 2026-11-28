@@ -59,6 +59,7 @@ async def create_session(payload: SessionRequest, request: Request) -> dict[str,
         "chat_type": validated.chat_type,
         "chat_instance": validated.chat_instance,
         "start_param": validated.start_param,
+        "bot_username": request.app.state.bot_engine.username,
     }
 
 
@@ -116,7 +117,7 @@ async def review_expense(
     except (KeyError, TypeError, ValueError) as exc:
         raise HTTPException(400, "Liên kết khoản chi không hợp lệ.") from exc
     if payload.action != "refresh" and (
-        str(payload.version) != link_version or payload.action != intent
+        str(payload.version) != link_version or intent not in {"review", payload.action}
     ):
         raise HTTPException(409, "Hãy mở đúng thao tác trên thẻ mới nhất.")
     engine = request.app.state.bot_engine

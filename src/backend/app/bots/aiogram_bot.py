@@ -239,7 +239,7 @@ class AiogramEngine(BotEngine):
             card = replace(card, rejection=card.rejection[:1200] + "… Xem đủ lý do trong Mini App.")
         text = render_confirmation_card_html(card)
         if review.last_change:
-            text += "\n" + escape(review.last_change)
+            text += "\n<b>" + escape(review.last_change) + "</b>"
         if review.status == "DISPUTED" or expense.card_revision != review.content_revision:
             text += "\n" + " ".join(
                 f'<a href="tg://user?id={uid}">{escape(name)}</a>' for uid, name in review.mentions
@@ -585,6 +585,10 @@ class AiogramEngine(BotEngine):
             )
         except ConflictError as exc:
             await callback.answer(exc.message, show_alert=True)
+            # An old Agree callback may refer to a card far back in chat history.
+            # Open its read-only refresh first so the viewer sees the latest revision.
+            url = self._expense_url(expense_id, message.chat.id, version) + "_review"
+            await message.answer(f'<a href="{escape(url)}">Xem phiên bản hiện tại</a>')
             await self.publish_expense(
                 uuid.UUID(raw_id),
                 message.chat.id,

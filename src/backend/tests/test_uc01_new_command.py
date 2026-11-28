@@ -379,9 +379,9 @@ async def test_new_command_creates_pending_expense_and_inline_card(settings: Set
     assert "150,000đ" in html_text
     assert "Đồng ý: 1/2" in html_text
     keyboard = kwargs["reply_markup"].inline_keyboard[0]
-    assert keyboard[0].callback_data == f"expense:agree:{saved.id}:{saved.version}"
-    assert keyboard[1].url.endswith(f"_{saved.version}_reject")
-    assert keyboard[2].url.endswith(f"_{saved.version}_edit")
+    assert len(keyboard) == 1
+    assert keyboard[0].url.endswith(f"_{saved.version}_review")
+    assert keyboard[0].callback_data is None
     assert cb_answers[-1] == ("Đã chia sẻ khoản chi.", {})
 
 
@@ -736,6 +736,7 @@ async def test_on_review_callback(scenario):
     expense_id = uuid.uuid4()
     review = SimpleNamespace(expense_id=expense_id, version=2)
     engine = Mock(spec=AiogramEngine)
+    engine._expense_url.return_value = "https://t.me/test?startapp=expense_test"
     engine._expense_service = AsyncMock()
     service_review = engine._expense_service.review
     service_review.return_value = review
@@ -767,6 +768,7 @@ async def test_on_review_callback(scenario):
         service_review.assert_any_await(action=action, **args)
         if scenario == "stale":
             callback.answer.assert_awaited_once_with("Stale", show_alert=True)
+            message.answer.assert_awaited_once()
         elif scenario == "forbidden":
             callback.answer.assert_awaited_once_with("Forbidden", show_alert=True)
         else:

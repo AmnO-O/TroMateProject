@@ -16,6 +16,32 @@ from tests.db.conftest import pytestmark  # noqa: F401
 from tests.db.helpers import CHAT_ID, make_expense, make_room
 
 
+async def test_edit_to_creator_only_confirms_without_ledger_entries(uow_factory):
+    room = await make_room(uow_factory)
+    expense = await make_expense(uow_factory, room)
+    service = ExpenseService(uow_factory=uow_factory)
+    result = await service.review(
+        expense_id=expense.id,
+        version=expense.version,
+        action="edit",
+        telegram_chat_id=CHAT_ID,
+        telegram_user_id=1,
+        edit=ExpenseEdit(
+            "Personal groceries",
+            expense.total_amount,
+            expense.category_id,
+            room.rep.member_id,
+            {room.rep.member_id: expense.total_amount},
+            SplitType.EQUAL,
+        ),
+    )
+    assert result.status == "CONFIRMED"
+    assert result.agreed_count == result.voter_count == 1
+    assert result.review_deadline is None and not result.can_vote
+    async with uow_factory() as uow:
+        assert not await uow.ledger.list_by_expense(expense.id)
+
+
 async def test_review_revision_and_ledger(uow_factory):
     room = await make_room(uow_factory)
     expense = await make_expense(uow_factory, room)
@@ -103,7 +129,13 @@ async def test_share_edit_reject_cancel(uow_factory):
     category = next(k for k, v in active.categories.items() if v == "Utilities")
     with pytest.raises(PermissionDeniedError):
         await review(2, "edit", active.version)
-    assert not (await review(2, "refresh", active.version)).can_edit
+    participant = await review(2, "refresh", active.version)
+    assert participant.can_vote and not participant.can_edit and not participant.can_cancel
+    assert active.can_edit and active.can_cancel and not active.can_vote
+    with pytest.raises(ValidationError):
+        await review(2, "reject", active.version)
+    with pytest.raises(PermissionDeniedError):
+        await review(2, "cancel", active.version)
     updated = await review(
         1,
         "edit",
@@ -139,11 +171,28 @@ async def test_share_edit_reject_cancel(uow_factory):
     more = await review(3, "addreason", disputed.version, reason=RejectionReason.DUPLICATE)
     assert more.status == "DISPUTED" and disputed.rejection in more.rejection
     assert len(more.rejection.splitlines()) == 2
+    creator_edit = await review(1, "refresh", more.version)
+    assert creator_edit.rejection == more.rejection and creator_edit.can_edit
+    delivered = []
+
+    async def capture(job, expense, card, chat, creator):
+        if job.kind == "notice":
+            delivered.append((job.recipient or creator, job.body))
+
+    while await service.deliver_next(capture):
+        pass
+    assert any(user == 1 and "Sai kỳ" in body for user, body in delivered)
+    assert any(user == 2 and "Sai kỳ" in body for user, body in delivered)
+    assert any(user == 1 and more.rejection.splitlines()[-1] in body for user, body in delivered)
     async with uow_factory() as uow:
         saved = await uow.expenses.get(created.expense_id)
         assert all(a.expense_version == more.version for a in saved.approvals)
     cancelled = await review(1, "cancel", more.version)
     assert cancelled.status == "CANCELLED"
+    with pytest.raises(ConflictError):
+        await review(2, "agree", cancelled.version)
+    closed = await review(2, "refresh", more.version)
+    assert closed.status == "CANCELLED" and not closed.can_vote and not closed.can_add_reason
     async with uow_factory() as uow:
         assert not await uow.ledger.list_by_expense(created.expense_id)
 
@@ -198,11 +247,14 @@ async def test_dispute_reminders_repeat_until_cancel(uow_factory, session_factor
     await make_reminder_due()
     assert await service.deliver_next(deliver)
     assert sent[-1] == ("reminder", 1)
+    await make_reminder_due()
+    assert await service.deliver_next(deliver)
+    assert sent.count(("reminder", 1)) == 2
     await service.review(**args, telegram_user_id=1, version=disputed.version, action="cancel")
     await make_reminder_due()
     while await service.deliver_next(deliver):
         pass
-    assert sent.count(("reminder", 1)) == 1
+    assert sent.count(("reminder", 1)) == 2
 
 
 async def test_edit_notifies_added_and_removed_members_and_blocks_old_vote(
@@ -369,14 +421,15 @@ async def test_overdue_decline_and_manual_expense(uow_factory):
         assert not await uow.ledger.net_balances(room.room_id)
 
 
-async def test_edit_restarts_share_window_after_utilities(uow_factory):
+@pytest.mark.parametrize("manual_category", ["Rent", "Utilities"])
+async def test_edit_restarts_share_window_after_manual_category(uow_factory, manual_category):
     room = await make_room(uow_factory)
     start = datetime.now(UTC)
     expense = await make_expense(uow_factory, room, deadline=start + timedelta(days=1))
     async with uow_factory() as uow:
         saved = await uow.expenses.get(expense.id)
         saved.review_window_minutes = 4320
-        utilities = await uow.rooms.get_category_by_name(room.room_id, "Utilities")
+        category = await uow.rooms.get_category_by_name(room.room_id, manual_category)
         await uow.commit()
     service = ExpenseService(uow_factory=uow_factory)
 
@@ -393,8 +446,8 @@ async def test_edit_restarts_share_window_after_utilities(uow_factory):
         )
 
     with pytest.raises(ValidationError):
-        await edit(utilities.id, expense.version, room.lan.member_id)
-    manual = await edit(utilities.id, expense.version, room.rep.member_id)
+        await edit(category.id, expense.version, room.lan.member_id)
+    manual = await edit(category.id, expense.version, room.rep.member_id)
     assert manual.review_deadline is None
     before = datetime.now(UTC)
     eligible = await edit(expense.category_id, manual.version, room.rep.member_id)

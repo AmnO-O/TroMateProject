@@ -337,6 +337,8 @@
     <main id="expense-screen" lang="vi" hidden>
       <h1 id="expense-heading">Khoản chi</h1>
       <p id="expense-summary"></p><p id="expense-time"></p>
+      <strong id="expense-changes"></strong>
+      <nav id="expense-actions"></nav>
       <form id="expense-form">
         <fieldset id="edit-fields" hidden>
           <legend>Thông tin khoản chi</legend>
@@ -350,7 +352,7 @@
         </fieldset>
         <fieldset id="reject-fields" hidden>
           <legend>Lý do từ chối</legend>
-          <select id="expense-reason"><option value="WRONG_AMOUNT">Sai số tiền</option>
+          <select id="expense-reason"><option value="">Chọn lý do</option><option value="WRONG_AMOUNT">Sai số tiền</option>
           <option value="WRONG_PARTICIPANTS">Sai thành viên</option>
           <option value="NOT_MY_EXPENSE">Không tham gia</option><option value="DUPLICATE">Trùng khoản chi</option>
           <option value="OTHER">Lý do khác</option></select>
@@ -500,7 +502,7 @@
         if (session.start_param?.startsWith("expense_")) {
           document.querySelector("main").hidden = true;
           document.getElementById("expense-screen").hidden = false;
-          await openExpense(session.start_param);
+          await openExpense(session.start_param, session.bot_username);
           return;
         }
         renderUser(session.user);
@@ -523,8 +525,10 @@
         }
       }
 
-      async function openExpense(parameter) {
-        const [, , , linkedVersion, action] = parameter.split("_");
+      let reviewTimer;
+
+      async function openExpense(parameter, botUsername) {
+        const [, , , linkedVersion, intent] = parameter.split("_");
         const el = id => document.getElementById(id);
         const feedback = el("expense-feedback");
         const submit = el("expense-submit");
@@ -547,7 +551,16 @@
           const lines = [states[view.status], view.category_name, "Người trả: " + view.payer_name,
                          formatAmount(view.total_amount), ...view.splits.map(s => s.display_name + ": " + formatAmount(s.share_amount))];
           if (view.rejection) lines.push(view.rejection);
-          if (view.last_change) lines.push(view.last_change);
+          el("expense-changes").textContent = view.last_change;
+          const decisions = {AGREE:"Đã đồng ý", REJECT:"Đã từ chối"};
+          lines.push("Cách chia: " + ({EQUAL:"Chia đều", CUSTOM_RATIO:"Theo tỉ lệ", CUSTOM_AMOUNT:"Theo số tiền"})[view.split_type]);
+          lines.push(view.payer_name + ": " + (decisions[view.payer_decision] || "Chờ duyệt"));
+          for (const split of view.splits)
+            lines.push(split.display_name + ": " + (decisions[split.decision] || "Chờ duyệt"));
+          if (view.status === "DISPUTED" && !view.can_edit)
+            lines.push("Chỉ người tạo được chỉnh sửa hoặc hủy khoản chi.");
+          clearInterval(reviewTimer);
+          el("expense-time").textContent = "";
           if (view.status === "PENDING" && view.review_deadline) {
             const tick = () => {
               const seconds = Math.max(0, Math.ceil((Date.parse(view.review_deadline) - Date.now()) / 1000));
@@ -555,92 +568,118 @@
               return seconds;
             };
             if (tick()) {
-              const timer = setInterval(() => {if (!tick()) clearInterval(timer);},1000);
-              window.addEventListener("pagehide", () => clearInterval(timer), {once:true});
+              reviewTimer = setInterval(() => {if (!tick()) clearInterval(reviewTimer);},1000);
             }
           }
           el("expense-summary").textContent = lines.join(" · ");
-          if (view.version !== Number(linkedVersion)) {
-            feedback.textContent = "Phiên bản đã thay đổi. Hãy mở thẻ mới nhất trong nhóm.";
+          const stale = view.version !== Number(linkedVersion);
+          const allowed = {agree:view.can_vote, reject:view.can_vote, edit:view.can_edit,
+                           cancel:view.can_cancel, addreason:view.can_add_reason};
+          const labels = {agree:"Đồng ý", reject:"Từ chối", edit:"Chỉnh sửa",
+                          cancel:"Hủy khoản chi", addreason:"Thêm lý do"};
+          const actions = el("expense-actions");
+          actions.replaceChildren();
+          const closedAction = intent !== "review" && ["CONFIRMED","CANCELLED"].includes(view.status);
+          if (stale || intent === "review" || !allowed[intent]) {
+            feedback.textContent = stale || closedAction ? "Khoản chi đã thay đổi. Đây là phiên bản hiện tại." : "";
+            for (const [key, permitted] of Object.entries(allowed)) {
+              if (!permitted) continue;
+              const button = document.createElement("button");
+              button.textContent = labels[key];
+              button.onclick = () => {
+                if (stale || intent !== "review") {
+                  const [, id, chat] = parameter.split("_");
+                  tg.openTelegramLink(`https://t.me/${botUsername}?startapp=expense_${id}_${chat}_${view.version}_${key}`);
+                } else {
+                  actions.replaceChildren();
+                  showForm(key);
+                }
+              };
+              actions.append(button);
+            }
+            if (!stale && !closedAction && !actions.childElementCount) feedback.textContent = "Chỉ xem.";
             return;
           }
-          const allowed = {edit:view.can_edit, reject:view.can_vote, addreason:view.can_add_reason, cancel:view.can_cancel};
-          if (!allowed[action]) {feedback.textContent = "Chỉ xem."; return;}
-          const splitRows = [];
-          if (action === "edit") {
-            el("edit-fields").hidden = false;
-            el("expense-description").value = view.description;
-            el("expense-total").value = view.total_amount;
-            for (const [id,name] of Object.entries(view.categories))
-              el("expense-category").add(new Option(name,id,false,id===view.category_id));
-            el("expense-payer").textContent = view.payer_name;
-            for (const [id,name] of Object.entries(view.members)) {
-              const row = document.createElement("label"), check = document.createElement("input");
-              const amount = document.createElement("input");
-              check.type = "checkbox"; check.checked = id in view.shares;
-              amount.type = "number"; amount.min = "1"; amount.step = "1"; amount.value = view.shares[id] || "";
-              row.append(check, document.createTextNode(name), amount);
-              el("expense-splits").append(row); splitRows.push({id,check,amount});
+          showForm(intent);
+
+          function showForm(action) {
+            const splitRows = [];
+            if (action === "edit") {
+              el("edit-fields").hidden = false;
+              el("expense-description").value = view.description;
+              el("expense-total").value = view.total_amount;
+              for (const [id,name] of Object.entries(view.categories))
+                el("expense-category").add(new Option(name,id,false,id===view.category_id));
+              el("expense-payer").textContent = view.payer_name;
+              for (const [id,name] of Object.entries(view.members)) {
+                const row = document.createElement("label"), check = document.createElement("input");
+                const amount = document.createElement("input");
+                check.type = "checkbox"; check.checked = id in view.shares;
+                amount.type = "number"; amount.min = "1"; amount.step = "1"; amount.value = view.shares[id] || "";
+                row.append(check, document.createTextNode(name), amount);
+                el("expense-splits").append(row); splitRows.push({id,check,amount});
+              }
+              el("expense-mode").value = view.split_type;
+              const validate = () => {
+                const mode = el("expense-mode").value;
+                const total = Number(el("expense-total").value);
+                const active = splitRows.filter(r => r.check.checked);
+                let error = "";
+                if (!active.length) error = "Chọn ít nhất một thành viên.";
+                else if (mode === "EQUAL" && total < active.length) error = "Mỗi phần chia phải lớn hơn 0đ.";
+                else if (mode !== "EQUAL") {
+                  const ratio = mode === "CUSTOM_RATIO";
+                  const values = active.map(r => Number(r.amount.value));
+                  const delta = (ratio ? 10000 : total) - values.reduce((sum,v) => sum + (ratio ? Math.round(v*100) : v),0);
+                  if (values.some(v => v <= 0)) error = "Mỗi phần chia phải lớn hơn 0.";
+                  else if (delta) error = (delta > 0 ? "Còn thiếu " : "Dư ") + (ratio ? Math.abs(delta)/100 + "%" : formatAmount(Math.abs(delta)));
+                }
+                feedback.textContent = error;
+                submit.disabled = Boolean(error) || !el("expense-description").value.trim() || total <= 0;
+              };
+              const setMode = () => {
+                const mode = el("expense-mode").value;
+                for (const r of splitRows) {
+                  r.amount.disabled = mode === "EQUAL" || !r.check.checked;
+                  r.amount.step = mode === "CUSTOM_RATIO" ? "0.01" : "1";
+                  r.amount.min = r.amount.step;
+                }
+                validate();
+              };
+              if (view.split_type === "CUSTOM_RATIO") splitRows.forEach(r => r.amount.value = (view.ratios[r.id] || 0)/100);
+              el("edit-fields").oninput = validate;
+              el("expense-mode").onchange = setMode;
+              splitRows.forEach(r => r.check.onchange = setMode); setMode();
+            } else if (["reject","addreason"].includes(action)) {
+              el("reject-fields").hidden = false;
+              el("expense-reason").required = true;
+              el("expense-reason").onchange = () => el("note-label").hidden = el("expense-reason").value !== "OTHER";
             }
-            el("expense-mode").value = view.split_type;
-            const validate = () => {
-              const mode = el("expense-mode").value;
-              const total = Number(el("expense-total").value);
-              const active = splitRows.filter(r => r.check.checked);
-              let error = "";
-              if (!active.length) error = "Chọn ít nhất một thành viên.";
-              else if (mode === "EQUAL" && total < active.length) error = "Mỗi phần chia phải lớn hơn 0đ.";
-              else if (mode !== "EQUAL") {
-                const ratio = mode === "CUSTOM_RATIO";
-                const values = active.map(r => Number(r.amount.value));
-                const delta = (ratio ? 10000 : total) - values.reduce((sum,v) => sum + (ratio ? Math.round(v*100) : v),0);
-                if (values.some(v => v <= 0)) error = "Mỗi phần chia phải lớn hơn 0.";
-                else if (delta) error = (delta > 0 ? "Còn thiếu " : "Dư ") + (ratio ? Math.abs(delta)/100 + "%" : formatAmount(Math.abs(delta)));
+            submit.hidden = false;
+            submit.textContent = {agree:"Xác nhận đồng ý",edit:"Lưu thay đổi",reject:"Gửi khiếu nại",addreason:"Gửi lý do bổ sung",cancel:"Xác nhận hủy khoản chi"}[action];
+            el("expense-form").onsubmit = async event => {
+              event.preventDefault(); submit.disabled = true;
+              try {
+                const payload = {action,version:view.version};
+                if (action === "edit") payload.edit = {
+                  description:el("expense-description").value, total_amount:Number(el("expense-total").value),
+                  category_id:el("expense-category").value, payer_id:view.payer_id,
+                  split_type:el("expense-mode").value,
+                  shares:Object.fromEntries(splitRows.filter(r=>r.check.checked).map(r=>[r.id, el("expense-mode").value === "CUSTOM_RATIO" ? Math.round(Number(r.amount.value)*100) : Number(r.amount.value)]))};
+                if (["reject","addreason"].includes(action)) {
+                  payload.reason = el("expense-reason").value;
+                  payload.note = el("expense-note").value;
+                }
+                await call(payload);
+                el("expense-form").hidden = true; feedback.textContent = "Đã lưu. Bot sẽ cập nhật thông báo trong nhóm.";
+              } catch (error) {
+                if (error.status === 409) {
+                  el("expense-form").hidden = true;
+                  await openExpense(parameter, botUsername);
+                } else {feedback.textContent = error.message; submit.disabled = false;}
               }
-              feedback.textContent = error;
-              submit.disabled = Boolean(error) || !el("expense-description").value.trim() || total <= 0;
             };
-            const setMode = () => {
-              const mode = el("expense-mode").value;
-              for (const r of splitRows) {
-                r.amount.disabled = mode === "EQUAL" || !r.check.checked;
-                r.amount.step = mode === "CUSTOM_RATIO" ? "0.01" : "1";
-                r.amount.min = r.amount.step;
-              }
-              validate();
-            };
-            if (view.split_type === "CUSTOM_RATIO") splitRows.forEach(r => r.amount.value = (view.ratios[r.id] || 0)/100);
-            el("edit-fields").oninput = validate;
-            el("expense-mode").onchange = setMode;
-            splitRows.forEach(r => r.check.onchange = setMode); setMode();
-          } else if (["reject","addreason"].includes(action)) {
-            el("reject-fields").hidden = false;
-            el("expense-reason").onchange = () => el("note-label").hidden = el("expense-reason").value !== "OTHER";
           }
-          submit.hidden = false;
-          submit.textContent = {edit:"Lưu thay đổi",reject:"Gửi khiếu nại",addreason:"Gửi lý do bổ sung",cancel:"Xác nhận hủy khoản chi"}[action];
-          el("expense-form").onsubmit = async event => {
-            event.preventDefault(); submit.disabled = true;
-            try {
-              const payload = {action,version:view.version};
-              if (action === "edit") payload.edit = {
-                description:el("expense-description").value, total_amount:Number(el("expense-total").value),
-                category_id:el("expense-category").value, payer_id:view.payer_id,
-                split_type:el("expense-mode").value,
-                shares:Object.fromEntries(splitRows.filter(r=>r.check.checked).map(r=>[r.id, el("expense-mode").value === "CUSTOM_RATIO" ? Math.round(Number(r.amount.value)*100) : Number(r.amount.value)]))};
-              if (["reject","addreason"].includes(action)) {
-                payload.reason = el("expense-reason").value;
-                payload.note = el("expense-note").value;
-              }
-              await call(payload);
-              el("expense-form").hidden = true; feedback.textContent = "Đã lưu. Bot sẽ cập nhật thông báo trong nhóm.";
-            } catch (error) {
-              if (error.status === 409) {
-                el("expense-form").hidden = true;
-                await openExpense(parameter);
-              } else {feedback.textContent = error.message; submit.disabled = false;}
-            }
-          };
         } catch(error) {feedback.textContent = error.message;}
       }
 

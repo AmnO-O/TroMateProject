@@ -59,6 +59,30 @@ def _build_orm_room_service() -> tuple[ExpenseService, _FakeExpenseRepo, Room, u
     return service, expense_repo, room, m1.id
 
 
+@pytest.mark.parametrize("window", [None, MIN_REVIEW_WINDOW_MINUTES])
+async def test_creator_only_share_is_already_confirmed(window):
+    service, repo, room, creator = _build_orm_room_service()
+    room.review_timeout_minutes = window
+    draft = await service.prepare_expense_draft(
+        telegram_chat_id=room.telegram_chat_id,
+        chat_title=room.name,
+        telegram_user_id=9001,
+        sender_display_name="Minh",
+        sender_username="tranminh",
+        text="Lunch 150k chia tranminh",
+    )
+    assert draft is not None and [s.member_id for s in draft.splits] == [creator]
+    now = datetime.now(UTC)
+    result = await service.share_expense_draft(draft, card_message_id=42, now=now)
+    (saved,) = repo.saved
+    assert result.status == saved.status == "CONFIRMED"
+    assert saved.confirmed_at == now and result.review_deadline is None
+    (vote,) = saved.approvals
+    assert (vote.member_id, vote.decision) == (creator, "AGREE")
+    assert vote.expense_version == result.version
+    assert [job.expense_id for job in repo.jobs] == [result.expense_id]
+
+
 @pytest.mark.parametrize(
     "command_text",
     [

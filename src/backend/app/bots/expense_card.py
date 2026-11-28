@@ -10,7 +10,6 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from app.bots.interface import (
     ConfirmationCardDTO,
     DraftSummaryDTO,
-    build_agree_callback,
     build_draft_cancel_callback,
     build_draft_edit_callback,
     build_draft_share_callback,
@@ -71,9 +70,7 @@ def render_draft_summary_html(summary: DraftSummaryDTO) -> str:
 
     if summary.auto_confirm_enabled and summary.room_window_minutes is not None:
         window_label = format_review_window(summary.room_window_minutes)
-        lines.append(
-            f"\n⏱️ Tự động xác nhận: <b>Bật</b> (window phòng: <b>{window_label}</b>)"
-        )
+        lines.append(f"\n⏱️ Tự động xác nhận: <b>Bật</b> (window phòng: <b>{window_label}</b>)")
     elif summary.manual_reason == "NO_ROOM_WINDOW" or summary.room_window_minutes is None:
         lines.append(
             "\n🔒 Tự động xác nhận: <b>Duyệt thủ công</b> — "
@@ -82,8 +79,7 @@ def render_draft_summary_html(summary: DraftSummaryDTO) -> str:
     elif summary.manual_reason == "CREATOR_DISABLED":
         window_label = format_review_window(summary.room_window_minutes)
         lines.append(
-            "\n🔒 Tự động xác nhận: <b>Đã tắt (Duyệt thủ công)</b> "
-            f"(window phòng: {window_label})"
+            f"\n🔒 Tự động xác nhận: <b>Đã tắt (Duyệt thủ công)</b> (window phòng: {window_label})"
         )
     elif summary.manual_reason == "MANUAL_CATEGORY":
         lines.append(
@@ -188,36 +184,9 @@ def render_confirmation_card_html(card: ConfirmationCardDTO) -> str:
 
 
 def build_confirmation_keyboard(card: ConfirmationCardDTO) -> InlineKeyboardMarkup:
-    """Build ``[✓ Đồng ý]``, ``[✕ Từ chối]``, and ``[✎ Chỉnh sửa]`` buttons."""
-
-    def link(label, action):
-        return InlineKeyboardButton(text=label, url=card.miniapp_edit_url + "_" + action)
-
-    edit = link("✎ Chỉnh sửa", "edit")
-    cancel = link("Hủy khoản chi", "cancel")
-    if card.status == "DRAFT":
-        rows = [
-            [
-                InlineKeyboardButton(
-                    text="Chia sẻ vào nhóm",
-                    callback_data=f"expense:share:{card.expense_id}:{card.version}",
-                ),
-                edit,
-                cancel,
-            ]
+    """Open the personal review screen from a keyboard shared by the whole group."""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Xem khoản chi", url=card.miniapp_edit_url + "_review")]
         ]
-    elif card.status == "DISPUTED":
-        rows = [[link("Thêm lý do", "addreason"), edit, cancel]]
-    else:
-        rows = [
-            [
-                InlineKeyboardButton(
-                    text="✓ Đồng ý",
-                    callback_data=build_agree_callback(card.expense_id, card.version),
-                ),
-                link("✕ Từ chối", "reject"),
-                edit,
-            ],
-            [cancel],
-        ]
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    )
