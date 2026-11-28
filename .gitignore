@@ -47,6 +47,7 @@ docs/test/*.md
 
 # Course templates (local reference only)
 docs/test/Test Cases Template v1.1.xlsx
+docs/test/test-report template-v1.1.xlsx
 
 # Claude Code local skills/settings (not pushed)
 .claude/
