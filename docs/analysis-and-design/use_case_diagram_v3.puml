@@ -1,0 +1,101 @@
+@startuml TroMate_Use_Case_Diagram_v3
+' TroMate use-case model, version 3.0
+' Source for Figure 1 in docs/usecase-specification/usecase-specification-v3.0.docx (Sec 1.5)
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle hollow
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam usecase {
+  BackgroundColor #F1F1F1
+  BorderColor #444444
+}
+
+actor "Room Representative\n(Room Rep)" as Rep
+actor "Room Member" as Member
+actor "Scheduler" as Scheduler
+actor "App Operator" as Operator
+
+Member <|-- Rep
+
+rectangle "TroMate System Boundary" {
+
+  package "Expense Logging" {
+    usecase "UC01: Log Shared Expense\n(text or receipt photo)" as UC01
+    usecase "UC04: Scan Utility Meter &\nLandlord Invoice" as UC04
+    usecase "UC03a: Read Expense Details\nfrom an Image" as UC03a
+    usecase "UC03b: Interpret Expense Details\n& Determine Split (equal / custom)" as UC03b
+  }
+
+  package "Room Settings" {
+    usecase "UC12: Manage Custom\nExpense Categories" as UC12
+    usecase "UC13: Vote on\nAuto-Confirmation Window" as UC13
+    usecase "UC15: Request Auto-Confirmation\nWindow Change" as UC15
+  }
+
+  package "Expense Review & Confirmation" {
+    usecase "UC05: Confirm / Reject / Edit\nPending Expense" as UC05
+    usecase "UC06: Auto-Confirm Expense\n(window it was shared with)" as UC06
+  }
+
+  package "Debt Simplification & Settlement" {
+    usecase "UC07: Simplify Group Debts" as UC07
+    usecase "UC08: Settle Net Debt" as UC08
+    usecase "UC09: Generate Dynamic VietQR" as UC09
+    usecase "UC10: Send Scheduled\nDebt Reminders" as UC10
+  }
+
+  package "Personal Ledger & Dashboard" {
+    usecase "UC11: View Personal Ledger\n& Dashboard" as UC11
+  }
+
+  package "Operations & Analytics" {
+    usecase "UC14: View Usage\nStatistics Report" as UC14
+  }
+}
+
+' Associations are undirected solid lines (UML).
+
+' Room Rep only (inherits every Room Member use case)
+Rep -- UC04
+Rep -- UC12
+
+' Room Member
+Member -- UC01
+Member -- UC05
+Member -- UC07
+Member -- UC08
+Member -- UC10
+Member -- UC11
+Member -- UC13
+Member -- UC15
+
+' Scheduler: starts UC06 and UC10; reminds and ends in UC05, UC08, UC13, UC15
+UC06 -- Scheduler
+UC10 -- Scheduler
+UC05 -- Scheduler
+UC08 -- Scheduler
+UC13 -- Scheduler
+UC15 -- Scheduler
+
+' App Operator
+Operator -- UC14
+
+' Includes (mandatory)
+UC01 ..> UC03b : <<include>>
+UC04 ..> UC03a : <<include>>
+UC04 ..> UC03b : <<include>>
+UC08 ..> UC09 : <<include>>
+
+' Extends (conditional)
+UC03a ..> UC01 : <<extend>>
+' receipt photo, UC01-AF01
+UC03b ..> UC05 : <<extend>>
+' creator edits, UC05-AF03
+
+' Not drawn (not UML use-case relationships; see Sec 1.4 note):
+'   UC07/UC10/UC11 -> UC08, UC11 -> UC05   sequential "leads to"
+'   UC15 -> UC13                           sequential (approved request opens a vote)
+'   UC12 -> UC03b, UC13 -> UC01/UC06       shared data "used by"
+
+@enduml

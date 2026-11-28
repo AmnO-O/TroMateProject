@@ -49,3 +49,5 @@ docs/test/*.md
 docs/test/Test Cases Template v1.1.xlsx
 
 rup_sad.docx
+# Claude Code local skills/settings (not pushed)
+.claude/

@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2080" height="2080" viewBox="0 0 2080 2080">
+<rect width="2080" height="2080" fill="white"/>
+<g transform="translate(80,0)">
+<rect x="520" y="10" width="1165" height="2055" rx="4" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="1102" y="40" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="bold" text-anchor="middle">TroMate System Boundary</text>
+<rect x="565" y="70" width="1085" height="415" rx="5" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="1107.5" y="98" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="bold" text-anchor="middle">Expense Logging</text>
+<ellipse cx="800" cy="200" rx="195" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="800" y="194.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC04: Scan Utility Meter &amp;</text>
+<text x="800" y="219.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">Landlord Invoice</text>
+<ellipse cx="800" cy="400" rx="195" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="800" y="394.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC01: Log Shared Expense</text>
+<text x="800" y="419.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">(text or receipt photo)</text>
+<ellipse cx="1420" cy="200" rx="210" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="1420" y="194.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC03a: Read Expense Details</text>
+<text x="1420" y="219.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">from an Image</text>
+<ellipse cx="1420" cy="400" rx="225" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="1420" y="394.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC03b: Interpret Expense Details</text>
+<text x="1420" y="419.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">&amp; Determine Split (equal / custom)</text>
+<rect x="565" y="520" width="640" height="450" rx="5" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="885.0" y="548" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="bold" text-anchor="middle">Room Settings</text>
+<ellipse cx="800" cy="610" rx="195" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="800" y="604.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC12: Manage Custom</text>
+<text x="800" y="629.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">Expense Categories</text>
+<ellipse cx="800" cy="750" rx="215" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="800" y="744.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC15: Request Auto-Confirmation</text>
+<text x="800" y="769.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">Window Change</text>
+<ellipse cx="800" cy="895" rx="195" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="800" y="889.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC13: Vote on</text>
+<text x="800" y="914.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">Auto-Confirmation Window</text>
+<rect x="565" y="1005" width="640" height="300" rx="5" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="885.0" y="1033" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="bold" text-anchor="middle">Expense Review &amp; Confirmation</text>
+<ellipse cx="800" cy="1095" rx="195" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="800" y="1089.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC05: Confirm / Reject / Edit</text>
+<text x="800" y="1114.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">Pending Expense</text>
+<ellipse cx="800" cy="1230" rx="195" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="800" y="1224.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC06: Auto-Confirm Expense</text>
+<text x="800" y="1249.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">(window it was shared with)</text>
+<rect x="565" y="1340" width="1085" height="410" rx="5" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="1107.5" y="1368" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="bold" text-anchor="middle">Debt Simplification &amp; Settlement</text>
+<ellipse cx="800" cy="1420" rx="195" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="800" y="1427.0" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC07: Simplify Group Debts</text>
+<ellipse cx="800" cy="1670" rx="195" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="800" y="1677.0" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC08: Settle Net Debt</text>
+<ellipse cx="800" cy="1545" rx="195" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="800" y="1539.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC10: Send Scheduled</text>
+<text x="800" y="1564.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">Debt Reminders</text>
+<ellipse cx="1420" cy="1670" rx="210" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="1420" y="1677.0" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC09: Generate Dynamic VietQR</text>
+<rect x="565" y="1780" width="640" height="135" rx="5" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="885.0" y="1808" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="bold" text-anchor="middle">Personal Ledger &amp; Dashboard</text>
+<ellipse cx="800" cy="1868" rx="195" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="800" y="1862.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC11: View Personal Ledger</text>
+<text x="800" y="1887.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">&amp; Dashboard</text>
+<rect x="565" y="1932" width="640" height="126" rx="5" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="885.0" y="1960" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="bold" text-anchor="middle">Operations &amp; Analytics</text>
+<ellipse cx="800" cy="2008" rx="195" ry="42" fill="#F1F1F1" stroke="#222" stroke-width="1.3"/>
+<text x="800" y="2002.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">UC14: View Usage</text>
+<text x="800" y="2027.5" font-family="Arial, Helvetica, sans-serif" font-size="21" text-anchor="middle">Statistics Report</text>
+<circle cx="330" cy="380" r="9" stroke="#222" stroke-width="1.3" fill="white"/>
+<path d="M310,396 H350 V404 H336 V410 L350,428 L342,434 L330,418 L318,434 L310,428 L324,410 V404 H310 Z" stroke="#222" stroke-width="1.3" fill="white"/>
+<text x="330" y="460" font-family="Arial, Helvetica, sans-serif" font-size="22" text-anchor="middle">Room Representative</text>
+<text x="330" y="486" font-family="Arial, Helvetica, sans-serif" font-size="22" text-anchor="middle">(Room Rep)</text>
+<circle cx="90" cy="1010" r="9" stroke="#222" stroke-width="1.3" fill="white"/>
+<path d="M70,1026 H110 V1034 H96 V1040 L110,1058 L102,1064 L90,1048 L78,1064 L70,1058 L84,1040 V1034 H70 Z" stroke="#222" stroke-width="1.3" fill="white"/>
+<text x="90" y="1090" font-family="Arial, Helvetica, sans-serif" font-size="22" text-anchor="middle">Room Member</text>
+<circle cx="1810" cy="1020" r="9" stroke="#222" stroke-width="1.3" fill="white"/>
+<path d="M1790,1036 H1830 V1044 H1816 V1050 L1830,1068 L1822,1074 L1810,1058 L1798,1074 L1790,1068 L1804,1050 V1044 H1790 Z" stroke="#222" stroke-width="1.3" fill="white"/>
+<text x="1810" y="1100" font-family="Arial, Helvetica, sans-serif" font-size="22" text-anchor="middle">Scheduler</text>
+<circle cx="330" cy="1960" r="9" stroke="#222" stroke-width="1.3" fill="white"/>
+<path d="M310,1976 H350 V1984 H336 V1990 L350,2008 L342,2014 L330,1998 L318,2014 L310,2008 L324,1990 V1984 H310 Z" stroke="#222" stroke-width="1.3" fill="white"/>
+<text x="330" y="2040" font-family="Arial, Helvetica, sans-serif" font-size="22" text-anchor="middle">App Operator</text>
+<path d="M300,490 Q150,620 100,976" fill="none" stroke="#222" stroke-width="1.5"/>
+<polygon points="100,990 93.8,966.8 112.3,969.4" fill="white" stroke="#222" stroke-width="1.5"/>
+<line x1="370.0" y1="390.0" x2="714.6" y2="237.8" stroke="#222" stroke-width="1.5"/>
+<line x1="370.0" y1="420.0" x2="714.6" y2="572.2" stroke="#222" stroke-width="1.5"/>
+<path d="M120.0,1035.0 Q419.0,673.6 744.0,440.2" fill="none" stroke="#222" stroke-width="1.5"/>
+<path d="M120.0,1035.0 Q452.3,874.1 696.7,786.8" fill="none" stroke="#222" stroke-width="1.5"/>
+<path d="M120.0,1035.0 Q458.0,955.2 649.0,921.6" fill="none" stroke="#222" stroke-width="1.5"/>
+<line x1="120.0" y1="1035.0" x2="619.6" y2="1079.1" stroke="#222" stroke-width="1.5"/>
+<line x1="120.0" y1="1035.0" x2="730.7" y2="1380.7" stroke="#222" stroke-width="1.5"/>
+<path d="M120.0,1035.0 Q454.0,1298.0 743.7,1504.8" fill="none" stroke="#222" stroke-width="1.5"/>
+<path d="M120.0,1035.0 Q439.5,1374.4 750.5,1629.4" fill="none" stroke="#222" stroke-width="1.5"/>
+<path d="M120.0,1035.0 Q212.1,1653.9 700.7,1831.8" fill="none" stroke="#222" stroke-width="1.5"/>
+<line x1="1780.0" y1="1045.0" x2="917.0" y2="785.2" stroke="#222" stroke-width="1.5"/>
+<line x1="1780.0" y1="1045.0" x2="959.0" y2="919.3" stroke="#222" stroke-width="1.5"/>
+<line x1="1780.0" y1="1045.0" x2="989.7" y2="1085.3" stroke="#222" stroke-width="1.5"/>
+<line x1="1780.0" y1="1045.0" x2="946.6" y2="1202.3" stroke="#222" stroke-width="1.5"/>
+<line x1="1780.0" y1="1045.0" x2="875.8" y2="1506.3" stroke="#222" stroke-width="1.5"/>
+<line x1="1780.0" y1="1045.0" x2="862.4" y2="1630.2" stroke="#222" stroke-width="1.5"/>
+<line x1="370.0" y1="1990.0" x2="608.6" y2="2000.0" stroke="#222" stroke-width="1.5"/>
+<line x1="995.0" y1="200.0" x2="1210.0" y2="200.0" stroke="#222" stroke-width="1.5" stroke-dasharray="9,7"/>
+<polyline points="1195.1,205.9 1210.0,200.0 1195.1,194.1" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="1102.5" y="190.0" font-family="Arial, Helvetica, sans-serif" font-size="19" text-anchor="middle" fill="#222" stroke="white" stroke-width="5" paint-order="stroke">«include»</text>
+<line x1="995.0" y1="400.0" x2="1195.0" y2="400.0" stroke="#222" stroke-width="1.5" stroke-dasharray="9,7"/>
+<polyline points="1180.1,405.9 1195.0,400.0 1180.1,394.1" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="1095.0" y="390.0" font-family="Arial, Helvetica, sans-serif" font-size="19" text-anchor="middle" fill="#222" stroke="white" stroke-width="5" paint-order="stroke">«include»</text>
+<path d="M1309.3,235.7 Q1110,300 908.3,365.1" fill="none" stroke="#222" stroke-width="1.5" stroke-dasharray="9,7"/>
+<polyline points="920.6,354.9 908.3,365.1 924.2,366.2" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="1200.0" y="255.0" font-family="Arial, Helvetica, sans-serif" font-size="19" text-anchor="middle" fill="#222" stroke="white" stroke-width="5" paint-order="stroke">«extend»</text>
+<path d="M908.3,234.9 Q1110,300 1307.3,363.6" fill="none" stroke="#222" stroke-width="1.5" stroke-dasharray="9,7"/>
+<polyline points="1291.3,364.7 1307.3,363.6 1295.0,353.4" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="1200.0" y="335.0" font-family="Arial, Helvetica, sans-serif" font-size="19" text-anchor="middle" fill="#222" stroke="white" stroke-width="5" paint-order="stroke">«include»</text>
+<path d="M1420.0,442.0 Q1420,900 910.2,1060.3" fill="none" stroke="#222" stroke-width="1.5" stroke-dasharray="9,7"/>
+<polyline points="922.6,1050.2 910.2,1060.3 926.1,1061.6" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="1335.0" y="760.0" font-family="Arial, Helvetica, sans-serif" font-size="19" text-anchor="middle" fill="#222" stroke="white" stroke-width="5" paint-order="stroke">«extend»</text>
+<line x1="995.0" y1="1670.0" x2="1210.0" y2="1670.0" stroke="#222" stroke-width="1.5" stroke-dasharray="9,7"/>
+<polyline points="1195.1,1675.9 1210.0,1670.0 1195.1,1664.1" fill="none" stroke="#222" stroke-width="1.6"/>
+<text x="1102.5" y="1660.0" font-family="Arial, Helvetica, sans-serif" font-size="19" text-anchor="middle" fill="#222" stroke="white" stroke-width="5" paint-order="stroke">«include»</text>
+</g>
+</svg>
