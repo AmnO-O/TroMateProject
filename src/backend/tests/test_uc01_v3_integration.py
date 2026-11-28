@@ -17,11 +17,7 @@ from aiogram.types import CallbackQuery, Message, Update  # noqa: E402
 from app.adapters.ai_extraction import AIExtractionAdapter  # noqa: E402
 from app.bots.aiogram_bot import AiogramEngine  # noqa: E402
 from app.core.config import Settings  # noqa: E402
-from app.db.enums import (  # noqa: E402
-    DEFAULT_CATEGORIES,
-    MAX_REVIEW_WINDOW_MINUTES,
-    MIN_REVIEW_WINDOW_MINUTES,
-)
+from app.db.enums import DEFAULT_CATEGORIES  # noqa: E402
 from app.db.models import Room, RoomMember, User  # noqa: E402
 from app.services.expense_service import ExpenseService  # noqa: E402
 from tests.test_uc01_new_command import (  # noqa: E402
@@ -35,6 +31,10 @@ from tests.test_uc01_new_command import (  # noqa: E402
     _group_command_update,
     _reply_update,
 )
+
+# BR03 production window range (DurationSettings defaults): 1 to 30 days.
+MIN_REVIEW_WINDOW_MINUTES = 1440
+MAX_REVIEW_WINDOW_MINUTES = 43200
 
 
 def _build_orm_room_service() -> tuple[ExpenseService, _FakeExpenseRepo, Room, uuid.UUID]:

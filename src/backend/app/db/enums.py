@@ -82,10 +82,6 @@ class LedgerEntryType(StrEnum):
     SETTLEMENT = "SETTLEMENT"
 
 
-# BR03 (v3.0): auto-confirmation window adopted via UC13 is 1 to 30 days (in minutes).
-MIN_REVIEW_WINDOW_MINUTES: int = 24 * 60
-MAX_REVIEW_WINDOW_MINUTES: int = 30 * 24 * 60
-
 # BR06: system categories seeded for every room; they cannot be renamed or archived.
 DEFAULT_CATEGORIES: tuple[str, ...] = (
     "Food & Drinks",

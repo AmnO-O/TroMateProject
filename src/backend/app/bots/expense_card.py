@@ -16,6 +16,7 @@ from app.bots.interface import (
     build_draft_share_callback,
     build_draft_turn_off_callback,
 )
+from app.services.durations import format_duration_vi
 
 _VN_TZ = timezone(timedelta(hours=7))
 
@@ -42,16 +43,7 @@ _STATUS_LABELS: dict[str, str] = {
 def format_review_window(minutes: int) -> str:
     """Format a review window in minutes into Vietnamese days/hours/minutes."""
 
-    days, rem_minutes = divmod(minutes, 1440)
-    hours, mins = divmod(rem_minutes, 60)
-    parts: list[str] = []
-    if days:
-        parts.append(f"{days} ngày")
-    if hours:
-        parts.append(f"{hours} giờ")
-    if mins or not parts:
-        parts.append(f"{mins} phút")
-    return " ".join(parts)
+    return format_duration_vi(minutes)
 
 
 def render_draft_summary_html(summary: DraftSummaryDTO) -> str:

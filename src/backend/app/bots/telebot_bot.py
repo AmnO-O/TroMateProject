@@ -10,13 +10,14 @@ from telebot.async_telebot import AsyncTeleBot
 
 from app.bots.base import BotEngine, TaskTracker
 from app.bots.common import (
-    balance_text,
     group_start_text,
     help_text,
+    live_balance_text,
     miniapp_direct_link,
     start_text,
 )
 from app.core.config import Settings
+from app.services.balance_service import BalanceService
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,11 @@ logger = logging.getLogger(__name__)
 class TelebotEngine(BotEngine):
     name = "telebot"
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self, settings: Settings, *, balance_service: BalanceService | None = None
+    ) -> None:
         self.settings = settings
+        self._balance_service = balance_service or BalanceService()
         self.bot = AsyncTeleBot(settings.telegram_bot_token)
         self._tasks = TaskTracker("app.bots.telebot_bot")
         self._register_handlers()
@@ -73,7 +77,7 @@ class TelebotEngine(BotEngine):
             await self.bot.set_my_commands(
                 [
                     types.BotCommand("start", "Open TroMate Mini App"),
-                    types.BotCommand("balance", "Show mock balances"),
+                    types.BotCommand("balance", "Show room balances"),
                     types.BotCommand("app", "Open the Mini App"),
                     types.BotCommand("help", "Show available commands"),
                 ]
@@ -154,7 +158,7 @@ class TelebotEngine(BotEngine):
             [
                 [
                     types.InlineKeyboardButton(
-                        "Refresh balances",
+                        "🔄 Làm mới",
                         callback_data="balance:refresh",
                     )
                 ]
@@ -178,7 +182,7 @@ class TelebotEngine(BotEngine):
     async def _on_balance(self, message: types.Message) -> None:
         await self.bot.reply_to(
             message,
-            balance_text(),
+            await live_balance_text(self._balance_service, message.chat.id, message.chat.type),
             reply_markup=self._balance_keyboard(),
         )
 
@@ -204,11 +208,12 @@ class TelebotEngine(BotEngine):
         await self.bot.reply_to(message, "Slow handler finished after 2 seconds.")
 
     async def _on_callback(self, call: types.CallbackQuery) -> None:
-        await self.bot.answer_callback_query(call.id, text="Balances refreshed")
         if call.message is not None:
+            chat = call.message.chat
             await self.bot.edit_message_text(
-                balance_text(),
+                await live_balance_text(self._balance_service, chat.id, chat.type),
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id,
                 reply_markup=self._balance_keyboard(),
             )
+        await self.bot.answer_callback_query(call.id, text="Đã cập nhật số dư")

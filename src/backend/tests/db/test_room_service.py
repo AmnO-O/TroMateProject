@@ -100,17 +100,18 @@ async def test_ensure_room_and_member_in_uow_new_room_no_missing_greenlet(uow_fa
     assert [m.user.display_name for m in room.members] == ["Cold User"]
 
 
-async def test_room_window_constraint_v3_range(uow_factory) -> None:
+async def test_room_window_constraint_only_requires_positive(uow_factory) -> None:
+    # SCRUM-138: a 5-minute test window is stored; the range is checked by the application.
     room = await make_room(uow_factory)
 
-    for valid in (None, 1440, 2160, 43200):
+    for valid in (None, 5, 1440, 2160, 43200, 43201):
         async with uow_factory() as uow:
             loaded = await uow.rooms.get_room(room.room_id)
             assert loaded is not None
             loaded.review_timeout_minutes = valid
             await uow.flush()
 
-    for invalid in (5, 1439, 43201):
+    for invalid in (0, -5):
         async with uow_factory() as uow:
             loaded = await uow.rooms.get_room(room.room_id)
             assert loaded is not None

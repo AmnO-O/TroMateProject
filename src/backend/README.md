@@ -1,33 +1,50 @@
-# TroMate Backend — Mini App Spike
+# TroMate Backend — PA4 Release (v0.2.0)
 
-FastAPI backend for the TroMate Telegram Mini App, plus interchangeable
-`python-telegram-bot` / `aiogram` / `pyTelegramBotAPI` adapters used to choose
-the bot library.
-
-It started as the Sprint 2 **Initialize Mini App** spike (mock balances,
-diagnostic Mini App page). Sprint 4 adds the PostgreSQL (Neon) storage layer:
-SQLAlchemy 2.0 async models, Alembic migrations, a Unit of Work, repositories
-and a services layer (SCRUM-122). See [Database](#database).
+FastAPI backend for the TroMate Telegram bot and Mini App, with PostgreSQL (Neon)
+persistence, `python-telegram-bot` / `aiogram` / `pyTelegramBotAPI` adapters, and
+working software for **UC01** (Log Shared Expense), **UC03b** (Interpret Expense
+Details & Split), **UC05** (Confirm, Reject or Edit Pending Expense), and live
+ledger balances (`SCRUM-122`–`SCRUM-126`, `SCRUM-136`). See [Database](#database).
 
 ## What is included
 
-- FastAPI app with `/health`, `/webhook/telegram`, `/miniapp`, and a small
-  protected Mini App API.
+- FastAPI app (`v0.2.0`) with `/health`, `/webhook/telegram`, `/miniapp`, and a
+  protected Mini App API (`/api/miniapp/session`, `/balance`, `/expenses`, `/expense`).
 - Official `initData` validation (HMAC-SHA256, `WebAppData`, `auth_date`
   freshness, duplicate-key rejection, `signature` included in the HMAC).
-- Three bot adapters selected by `BOT_LIBRARY=ptb|aiogram|telebot`:
+- Bot adapters selected by `BOT_LIBRARY` (`aiogram` is the default and required
+  for PA4 UC01/UC05 flows; `ptb` and `telebot` remain for `/start`, `/balance`, `/app`, `/help`):
   - `/start`, `/balance`, `/app`, `/help` (Vietnamese help text in `common.py`)
-  - `/new [text]` (`AiogramEngine` — UC01 + UC03b expense logging in group chats)
-  - inline “Refresh balances” callback and UC01 inline confirmation card (`[✓ Đồng ý]`, `[✕ Từ chối]`, `[✎ Chỉnh sửa]`)
-  - private-chat `web_app` button
-  - group direct-link button
+  - `/new [text]` (`AiogramEngine` — UC01 v3.0 draft summary `[✓ Chia sẻ]` / `[✎ Chỉnh sửa]` / `[✕ Hủy]` / `[🔕 Tắt tự động xác nhận]`)
+  - live `/balance` from the ledger with an inline “🔄 Làm mới” refresh, and UC05 confirmation cards (`[✓ Đồng ý]`, `[✕ Từ chối]`, `[✎ Chỉnh sửa]`, `[Hủy khoản chi]`, `[Thêm lý do]`)
+  - private-chat `web_app` button and group direct-link button
   - a dev-only `/slow` command for ACK/concurrency checks
-- UC01 natural-language extraction & split parsing (SCRUM-123):
+- UC01 & UC03b natural-language extraction & split parsing:
   - `AIExtractionAdapter` (`gemini-3.5-flash-lite` via `GEMINI_API_KEY`) with automatic fallback to rule-based `vnd_parser.py`
-  - `ExpenseParser` (VND slang normalization `k`/`nghìn`/`lít`/`tr`/`củ`, equal & `CUSTOM_AMOUNT` splits, §2.5.3 remainder absorption)
-  - `ExpenseService` (single-`UnitOfWork` persistence with `RoomService.ensure_room_and_member_in_uow`, `BR02` manual approval for `Rent`/`Utilities`)
+  - `ExpenseParser` (VND slang normalization `k`/`nghìn`/`ngàn`/`lít`/`tr`/`triệu`/`củ`/`đồng`, creator-only payer enforcement `BR01`, equal & `CUSTOM_AMOUNT` splits, §2.5.3 remainder absorption)
+  - `ExpenseService` (UC01 v3.0 window latching `BR03`, `BR02` manual approval for `Rent`/`Utilities`/no-window/creator-disabled, UC05 optimistic-locking review/dispute/edit/cancel, and atomic `ledger_entries` commit)
 - Webhook management script and a dev-only signed `initData` generator.
-- Automated tests for the validator, webhook authentication, API, UC01 parser/extractor, and `/new` bot flow.
+- Automated `pytest` suite covering `initData`, webhook auth, UC01, UC03b, UC05, live balances, and PostgreSQL migrations (`tests/db/`).
+
+## Quickstart for TAs (clean clone)
+
+From `src/backend`:
+
+```bash
+uv sync --all-extras
+cp .env.example .env          # PowerShell: Copy-Item .env.example .env
+# Fill DATABASE_URL (Neon/PostgreSQL), TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET, PUBLIC_BASE_URL
+# Keep BOT_LIBRARY=aiogram for UC01 & UC05; GEMINI_API_KEY may be left blank to test fallback mode
+uv run alembic upgrade head
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Run automated checks without needing Telegram or a test DB:
+
+```bash
+uv run --extra all pytest -v
+uv run ruff check .
+```
 
 ## Requirements
 
@@ -71,7 +88,7 @@ Fill in:
 | Variable | Meaning |
 |---|---|
 | `PUBLIC_BASE_URL` | Public HTTPS tunnel base URL, no trailing slash |
-| `BOT_LIBRARY` | `ptb`, `aiogram`, or `telebot` |
+| `BOT_LIBRARY` | `aiogram` (default, required for UC01/UC05), `ptb`, or `telebot` |
 | `TELEGRAM_BOT_TOKEN` | Token from BotFather |
 | `TELEGRAM_WEBHOOK_SECRET` | 16–256 characters from `A-Za-z0-9_-` |
 | `AUTO_SET_WEBHOOK` | `true` to register the webhook on startup |
@@ -80,6 +97,31 @@ Fill in:
 | `GEMINI_API_KEY` | Google Gemini key for the AI Extraction Adapter; empty = VND parser fallback |
 
 `.env` is ignored by Git. Only `.env.example` is committed.
+
+### Time durations (testing)
+
+Every duration of Use-Case Specification v3.0 is a setting in minutes
+(`DurationSettings` in `app/core/config.py`). Unset, each takes its production value. The
+shared test environment sets the Test Plan v1.2 values in `.env` so time-based flows run in
+minutes:
+
+| Variable | Spec | Production (default) | Test env |
+|---|---|---|---|
+| `REVIEW_WINDOW_MIN_MINUTES` | BR03, UC13-AF05 | 1440 (1 day) | 5 |
+| `REVIEW_WINDOW_MAX_MINUTES` | BR03, UC13-AF05 | 43200 (30 days) | 43200 |
+| `REP_VOTE_PERIOD_MINUTES` | BR10 | unset (the 12/24/48/72 h chosen) | 10 |
+| `CHANGE_REQUEST_VOTE_PERIOD_MINUTES` | BR11 | 1440 (24 h) | 10 |
+| `VOTE_REMINDER_BEFORE_END_MINUTES` | BR10 | 120 (2 h) | 2 |
+| `CHANGE_REQUEST_OPEN_PERIOD_MINUTES` | BR11, UC15-AF06 | 4320 (3 days) | 10 |
+| `PROPOSAL_COOLDOWN_MINUTES` | BR11, UC15-AF04 | 10080 (7 days) | 15 |
+| `DISPUTE_REMINDER_INTERVAL_MINUTES` | BR04, UC05-AF02 | 4320 (3 days) | 10 |
+| `DEADLINE_REMINDER_BEFORE_MINUTES` | BR03, UC06-AF05 | 1440 (24 h) | 5 |
+| `DEADLINE_REMINDER_MIN_WINDOW_MINUTES` | BR03, UC06-AF05 | 1440 (1 day) | 5 |
+
+The active values are logged at startup. With `APP_ENV=production`, settings fail to load
+(and the app does not start) if any duration differs from its production value. Each
+expense stores the window it was shared with (`expenses.review_window_minutes`), so changing
+these settings or the room's window never moves an existing deadline (BR03).
 
 ## Run locally
 
@@ -151,9 +193,9 @@ use a cache-busting query string (for example `?v=2`) when iterating.
 ```json
 {
   "status": "ok",
-  "library": "ptb",
-  "version": "0.1.0",
-  "bot_username": "tromate_spike_bot",
+  "library": "aiogram",
+  "version": "0.2.0",
+  "bot_username": "tromate_dev_bot",
   "webhook_path": "/webhook/telegram"
 }
 ```
@@ -173,9 +215,44 @@ Returns the validated user and launch context. Errors include a stable code:
 
 ### `GET /api/miniapp/balance`
 
-Requires the raw `initData` in the `X-Telegram-Init-Data` header. Returns mock
-balances for the spike. Production should exchange `initData` for a short-lived
-session token instead of re-validating it on every request.
+Requires the raw `initData` in the `X-Telegram-Init-Data` header. Returns the
+live net balance of every room member, summed from `ledger_entries` (only
+CONFIRMED expenses and settlements are posted there), plus the suggested
+transfers from `app/services/debt_engine.py` (greedy minimum cash flow, at most
+`n - 1` transfers). `+` means the room owes the member, `-` means they owe.
+
+The room is taken from `initData.chat` or, for direct links, from
+`start_param`: `room_<chat_id>` (sent by `/balance` and `/app` in a group) or an
+`expense_…` link. Because anyone can craft a `start_param`, the caller must be a
+member of that room (`403 FORBIDDEN` otherwise). Overdue PENDING expenses are
+auto-resolved first, so the figures are current. Without a room context the
+response has `"room": null` and empty lists.
+
+```json
+{
+  "ok": true, "currency": "VND", "generated_at": "2026-11-26T03:00:00Z",
+  "room": {"id": "…", "name": "P302"}, "settled": false,
+  "balances": [{"member_id": "…", "telegram_user_id": 1, "name": "Hao", "amount": 200000, "is_me": false}],
+  "transfers": [{"from_member_id": "…", "from_name": "Lan", "to_member_id": "…", "to_name": "Hao", "amount": 100000}]
+}
+```
+
+### `GET /api/miniapp/expenses?limit=20`
+
+Same authentication and room resolution as `/balance`. Returns the newest
+shared expenses of the room (PENDING, DISPUTED, CONFIRMED, CANCELLED; never
+DRAFT), each with `payer_name`, `category_name`, `status` and the caller's own
+`my_share`. `limit` is 1–100.
+
+### `POST /api/miniapp/expense`
+
+Requires `X-Telegram-Init-Data` from an `expense_<id_hex>_<chat_id>_<version>_<intent>`
+deep link. Supports UC05 Mini App actions (`refresh`, `edit`, `reject`, `addreason`,
+`cancel`, `agree`), enforcing version + intent checks (`409` on stale links) and
+requiring `BOT_LIBRARY=aiogram` (`503` otherwise).
+
+Production should exchange `initData` for a short-lived session token instead
+of re-validating it on every request.
 
 ### `POST /webhook/telegram`
 

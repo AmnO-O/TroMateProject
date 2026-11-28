@@ -23,7 +23,7 @@ Mặc dù kịch bản UC01 gốc mô tả việc người dùng nhắn tin tự
 | `/start` | Có sẵn (`main`) | `all` | Khởi động bot & mở liên kết TroMate Mini App |
 | `/help` | Có sẵn (`main`) | `all` | Xem hướng dẫn sử dụng toàn bộ bằng tiếng Việt & ví dụ `/new` |
 | `/app` | Có sẵn (`main`) | `all` | Mở nhanh giao diện TroMate Mini App |
-| `/balance` | Có sẵn (`main`) | `group` | Xem số dư phòng *(mock spike hiện tại; `DebtEngine` thuộc SCRUM-125)* |
+| `/balance` | Có sẵn (`main`) | `group` | Xem số dư phòng (live từ `ledger_entries`, gợi ý thanh toán bằng `DebtEngine` — SCRUM-125) |
 | **`/new`** | **Mới (`SCRUM-123`)** | `group` | **Ghi nhận chi tiêu mới bằng tiếng Việt tự nhiên** (vd: `/new Đi chợ 150k chia tao với Nam`) |
 
 ---

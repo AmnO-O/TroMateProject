@@ -16,13 +16,14 @@ from telegram.ext import Application, CallbackQueryHandler, CommandHandler, Cont
 
 from app.bots.base import BotEngine
 from app.bots.common import (
-    balance_text,
     group_start_text,
     help_text,
+    live_balance_text,
     miniapp_direct_link,
     start_text,
 )
 from app.core.config import Settings
+from app.services.balance_service import BalanceService
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +31,11 @@ logger = logging.getLogger(__name__)
 class PTBEngine(BotEngine):
     name = "ptb"
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self, settings: Settings, *, balance_service: BalanceService | None = None
+    ) -> None:
         self.settings = settings
+        self._balance_service = balance_service or BalanceService()
         self.application = (
             Application.builder()
             .token(settings.telegram_bot_token)
@@ -58,7 +62,7 @@ class PTBEngine(BotEngine):
             await self.application.bot.set_my_commands(
                 [
                     BotCommand("start", "Open TroMate and show the Mini App button"),
-                    BotCommand("balance", "Show mock balances"),
+                    BotCommand("balance", "Show room balances"),
                     BotCommand("app", "Open the TroMate Mini App"),
                     BotCommand("help", "Show available commands"),
                 ]
@@ -135,7 +139,7 @@ class PTBEngine(BotEngine):
 
     def _balance_keyboard(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Refresh balances", callback_data="balance:refresh")]]
+            [[InlineKeyboardButton("🔄 Làm mới", callback_data="balance:refresh")]]
         )
 
     async def _on_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -158,7 +162,11 @@ class PTBEngine(BotEngine):
         message = update.effective_message
         if message is None:
             return
-        await message.reply_text(balance_text(), reply_markup=self._balance_keyboard())
+        chat = message.chat
+        await message.reply_text(
+            await live_balance_text(self._balance_service, chat.id, chat.type),
+            reply_markup=self._balance_keyboard(),
+        )
 
     async def _on_app(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         message = update.effective_message
@@ -195,12 +203,13 @@ class PTBEngine(BotEngine):
         query = update.callback_query
         if query is None:
             return
-        await query.answer("Balances refreshed")
         if query.message is not None:
+            chat = query.message.chat
             await query.edit_message_text(
-                balance_text(),
+                await live_balance_text(self._balance_service, chat.id, chat.type),
                 reply_markup=self._balance_keyboard(),
             )
+        await query.answer("Đã cập nhật số dư")
 
     async def _on_error(
         self,

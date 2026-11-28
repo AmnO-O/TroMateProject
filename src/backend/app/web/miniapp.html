@@ -209,6 +209,22 @@
         color: var(--danger);
       }
 
+      .amount.pending {
+        color: var(--hint);
+      }
+
+      .balances .meta {
+        display: block;
+        color: var(--hint);
+        font-size: 12px;
+        font-weight: 400;
+      }
+
+      .card h3 {
+        margin: 16px 0 8px;
+        font-size: 14px;
+      }
+
       button {
         width: 100%;
         margin-top: 4px;
@@ -320,9 +336,18 @@
         </div>
       </section>
 
-      <section id="balance-card" class="card" hidden>
-        <h2>Mock balances</h2>
+      <section id="balance-card" class="card" hidden lang="vi">
+        <h2 id="balance-title">Số dư phòng</h2>
         <ul id="balances" class="balances"></ul>
+        <div id="transfers-block" hidden>
+          <h3>Gợi ý thanh toán</h3>
+          <ul id="transfers" class="balances"></ul>
+        </div>
+      </section>
+
+      <section id="expenses-card" class="card" hidden lang="vi">
+        <h2>Khoản chi gần đây</h2>
+        <ul id="expenses" class="balances"></ul>
       </section>
 
       <button id="recheck" type="button">Re-check initData</button>
@@ -381,6 +406,17 @@
       const authDateEl = document.getElementById("auth-date");
       const queryIdEl = document.getElementById("query-id");
       const balancesEl = document.getElementById("balances");
+      const balanceTitleEl = document.getElementById("balance-title");
+      const transfersBlock = document.getElementById("transfers-block");
+      const transfersEl = document.getElementById("transfers");
+      const expensesCard = document.getElementById("expenses-card");
+      const expensesEl = document.getElementById("expenses");
+      const STATUS_LABELS = {
+        PENDING: "Chờ xác nhận",
+        DISPUTED: "Đang tranh chấp",
+        CONFIRMED: "Đã xác nhận",
+        CANCELLED: "Đã huỷ",
+      };
       const rawEl = document.getElementById("raw");
       const recheckEl = document.getElementById("recheck");
 
@@ -393,9 +429,32 @@
         rawEl.textContent = JSON.stringify(value, null, 2);
       }
 
-      function formatAmount(amount) {
-        const sign = amount >= 0 ? "+" : "-";
+      function formatAmount(amount, signed = true) {
+        const sign = !signed || amount === 0 ? "" : amount > 0 ? "+" : "-";
         return `${sign}${Math.abs(amount).toLocaleString("vi-VN")} ₫`;
+      }
+
+      function listItem(label, meta, amountText, tone) {
+        const item = document.createElement("li");
+        const left = document.createElement("span");
+        left.textContent = label;
+        if (meta) {
+          const small = document.createElement("span");
+          small.className = "meta";
+          small.textContent = meta;
+          left.appendChild(small);
+        }
+        const amount = document.createElement("span");
+        amount.className = "amount" + (tone ? ` ${tone}` : "");
+        amount.textContent = amountText;
+        item.append(left, amount);
+        return item;
+      }
+
+      function emptyItem(text) {
+        const item = document.createElement("li");
+        item.textContent = text;
+        return item;
       }
 
       function formatAuthDate(epochSeconds) {
@@ -428,26 +487,55 @@
         contextCard.hidden = false;
       }
 
-      function renderBalances(balances) {
+      function renderBalances(payload) {
         balancesEl.replaceChildren();
-        if (!Array.isArray(balances) || balances.length === 0) {
-          const item = document.createElement("li");
-          item.textContent = "No balances returned.";
-          balancesEl.appendChild(item);
-          balanceCard.hidden = false;
+        transfersEl.replaceChildren();
+        transfersBlock.hidden = true;
+        balanceCard.hidden = false;
+        if (!payload.room) {
+          balanceTitleEl.textContent = "Số dư phòng";
+          balancesEl.appendChild(
+            emptyItem("Mở Mini App từ nhóm phòng trọ (lệnh /balance hoặc /app) để xem số dư."),
+          );
           return;
         }
-        for (const balance of balances) {
-          const item = document.createElement("li");
-          const name = document.createElement("span");
-          name.textContent = balance.name;
-          const amount = document.createElement("span");
-          amount.className = "amount " + (balance.amount >= 0 ? "positive" : "negative");
-          amount.textContent = formatAmount(balance.amount);
-          item.append(name, amount);
-          balancesEl.appendChild(item);
+        balanceTitleEl.textContent = `Số dư phòng ${payload.room.name}`;
+        for (const balance of payload.balances) {
+          const meta = balance.amount > 0 ? "Được nhận" : balance.amount < 0 ? "Cần trả" : "Đã cân bằng";
+          const tone = balance.amount > 0 ? "positive" : balance.amount < 0 ? "negative" : "";
+          const name = balance.is_me ? `${balance.name} (bạn)` : balance.name;
+          balancesEl.appendChild(listItem(name, meta, formatAmount(balance.amount), tone));
         }
-        balanceCard.hidden = false;
+        if (payload.settled) {
+          balancesEl.prepend(emptyItem("Mọi người đã cân bằng, không ai nợ ai. ✅"));
+        }
+        for (const transfer of payload.transfers) {
+          transfersEl.appendChild(
+            listItem(`${transfer.from_name} → ${transfer.to_name}`, "", formatAmount(transfer.amount, false), ""),
+          );
+        }
+        transfersBlock.hidden = payload.transfers.length === 0;
+      }
+
+      function renderExpenses(expenses) {
+        expensesEl.replaceChildren();
+        expensesCard.hidden = false;
+        if (!expenses.length) {
+          expensesEl.appendChild(emptyItem("Chưa có khoản chi nào."));
+          return;
+        }
+        for (const expense of expenses) {
+          const parts = [
+            STATUS_LABELS[expense.status] || expense.status,
+            `${expense.payer_name} trả`,
+            new Date(expense.created_at).toLocaleDateString("vi-VN"),
+          ];
+          if (expense.my_share != null) parts.push(`Phần bạn: ${formatAmount(expense.my_share, false)}`);
+          const tone = expense.status === "CONFIRMED" ? "" : "pending";
+          expensesEl.appendChild(
+            listItem(expense.description, parts.join(" · "), formatAmount(expense.total_amount, false), tone),
+          );
+        }
       }
 
       async function readJson(response) {
@@ -469,6 +557,7 @@
         userCard.hidden = true;
         contextCard.hidden = true;
         balanceCard.hidden = true;
+        expensesCard.hidden = true;
 
         if (!initData) {
           setStatus("Not running inside Telegram", "error");
@@ -517,7 +606,17 @@
             showError("Balance API rejected the session", balance);
             return;
           }
-          renderBalances(balance.balances);
+          renderBalances(balance);
+          if (!balance.room) return;
+          const expensesResponse = await fetch("/api/miniapp/expenses", {
+            headers: { "X-Telegram-Init-Data": initData },
+          });
+          const expenses = await readJson(expensesResponse);
+          if (!expensesResponse.ok) {
+            showError("Expense API rejected the session", expenses);
+            return;
+          }
+          renderExpenses(expenses.expenses);
         } catch (error) {
           showError("Could not reach the balance API", { error: String(error) });
         }
